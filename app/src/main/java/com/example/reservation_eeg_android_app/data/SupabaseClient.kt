@@ -21,6 +21,8 @@ val supabaseClient = createSupabaseClient(
     install(Postgrest)
     install(Auth) {
         sessionManager = MemorySessionManager()
+        scheme = "supabase"
+        host = "callback"
     }
     install(Realtime)
 }

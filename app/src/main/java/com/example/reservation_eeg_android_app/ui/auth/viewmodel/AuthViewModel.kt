@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
+import io.github.jan.supabase.auth.providers.Google
+import io.github.jan.supabase.auth.providers.Kakao
 import io.github.jan.supabase.auth.providers.builtin.Email
 import io.github.jan.supabase.auth.status.SessionStatus
 import io.github.jan.supabase.postgrest.postgrest
@@ -63,8 +65,13 @@ class AuthViewModel : ViewModel() {
             _error.value = null
             _updateSuccess.value = false
             try {
-                supabaseClient.postgrest["profiles"].upsert(profile)
-                _userProfile.value = profile
+                // If this is a new profile and the user entered an email for the first time
+                // We should ensure the profile has the current user ID
+                val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: profile.id
+                val profileToUpdate = profile.copy(id = currentUserId)
+                
+                supabaseClient.postgrest["profiles"].upsert(profileToUpdate)
+                _userProfile.value = profileToUpdate
                 _updateSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Profile update failed: ${e.localizedMessage}"
@@ -102,6 +109,34 @@ class AuthViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _error.value = "Sign in failed: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun signInWithGoogle() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                supabaseClient.auth.signInWith(Google, redirectUrl = "supabase://callback")
+            } catch (e: Exception) {
+                _error.value = "Google Sign in failed: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun signInWithKakao() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                supabaseClient.auth.signInWith(Kakao, redirectUrl = "supabase://callback")
+            } catch (e: Exception) {
+                _error.value = "Kakao Sign in failed: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }

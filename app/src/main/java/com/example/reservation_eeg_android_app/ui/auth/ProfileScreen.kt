@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -109,7 +110,7 @@ fun UserProfileCard(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ProfileInfoRow("이름", profile.name.ifBlank { "미지정" })
-                ProfileInfoRow("이메일", profile.email)
+                ProfileInfoRow("이메일", profile.email.ifBlank { "미지정" })
                 ProfileInfoRow("전화번호", profile.phoneNumber.ifBlank { "미지정" })
                 ProfileInfoRow("주소", profile.address.ifBlank { "미지정" })
                 ProfileInfoRow("성별", profile.sex.ifBlank { "미지정" })
@@ -206,7 +207,14 @@ fun ProfileDetailForm(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
         )
         OutlinedTextField(value = familyMembers, onValueChange = { familyMembers = it }, label = { Text("가족 구성원") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") }, modifier = Modifier.fillMaxWidth(), enabled = false)
+        OutlinedTextField(
+            value = email,
+            onValueChange = { email = it },
+            label = { Text("이메일") },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = profile.email.isBlank(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+        )
 
         if (error != null) {
             Text(text = error, color = MaterialTheme.colorScheme.error)
@@ -222,7 +230,8 @@ fun ProfileDetailForm(
                     residentId = residentId,
                     address = address,
                     phoneNumber = phoneNumber,
-                    familyMembers = familyMembers
+                    familyMembers = familyMembers,
+                    email = email
                 ))
             },
             modifier = Modifier.fillMaxWidth(),
@@ -307,6 +316,32 @@ fun AuthForm(viewModel: AuthViewModel, isLoading: Boolean, error: String?) {
         
         TextButton(onClick = { isSignUp = !isSignUp }) {
             Text(if (isSignUp) "이미 계정이 있으신가요? 로그인" else "계정이 없으신가요? 회원가입")
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedButton(
+            onClick = { viewModel.signInWithGoogle() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading
+        ) {
+            Text("Google로 로그인")
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+
+        Button(
+            onClick = { viewModel.signInWithKakao() },
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !isLoading,
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFFEE500),
+                contentColor = Color(0xFF191919)
+            )
+        ) {
+            Text("카카오로 로그인")
         }
     }
 }

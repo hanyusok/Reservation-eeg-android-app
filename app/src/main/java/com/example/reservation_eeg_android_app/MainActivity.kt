@@ -1,5 +1,6 @@
 package com.example.reservation_eeg_android_app
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -20,15 +21,18 @@ import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.ui.navigation.NavGraph
 import com.example.reservation_eeg_android_app.ui.navigation.Screen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
+import io.github.jan.supabase.auth.handleDeeplinks
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        supabaseClient.handleDeeplinks(intent)
         enableEdgeToEdge()
         setContent {
             ReservationeegandroidappTheme {
@@ -91,5 +95,10 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        supabaseClient.handleDeeplinks(intent)
     }
 }
