@@ -1,0 +1,100 @@
+package com.example.reservation_eeg_android_app.ui.reservation
+
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SlotSelectionScreen(
+    viewModel: ReservationViewModel,
+    onBack: () -> Unit,
+    onComplete: () -> Unit
+) {
+    var selectedDate by remember { mutableStateOf("2026-06-10") }
+    val mockSlots = listOf("09:00", "10:30", "13:00", "14:30", "16:00")
+    var selectedSlot by remember { mutableStateOf<String?>(null) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(title = { Text("예약 시간 선택") })
+        }
+    ) { innerPadding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(16.dp)
+        ) {
+            Text(
+                text = "날짜: $selectedDate",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            Text(
+                text = "가능한 시간대",
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(mockSlots) { slot ->
+                    SlotItem(
+                        slot = slot,
+                        isSelected = slot == selectedSlot,
+                        onClick = { selectedSlot = slot }
+                    )
+                }
+            }
+            
+            Button(
+                onClick = {
+                    selectedSlot?.let {
+                        viewModel.completeReservation(it)
+                        onComplete()
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+                enabled = selectedSlot != null
+            ) {
+                Text("예약 확정")
+            }
+        }
+    }
+}
+
+@Composable
+fun SlotItem(slot: String, isSelected: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
+        colors = if (isSelected) {
+            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+        } else {
+            CardDefaults.cardColors()
+        }
+    ) {
+        Row(
+            modifier = Modifier
+                .padding(16.dp)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(text = slot, style = MaterialTheme.typography.bodyLarge)
+            if (isSelected) {
+                Text(text = "선택됨", color = MaterialTheme.colorScheme.primary)
+            }
+        }
+    }
+}
