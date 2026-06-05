@@ -11,18 +11,22 @@ import com.example.reservation_eeg_android_app.ui.reservation.ReservationScreen
 import com.example.reservation_eeg_android_app.ui.reservation.SlotSelectionScreen
 import com.example.reservation_eeg_android_app.ui.reservation.SymptomScreen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
+import com.example.reservation_eeg_android_app.ui.auth.ProfileScreen
+import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 
 sealed class Screen(val route: String) {
     object Reservation : Screen("reservation")
     object Symptoms : Screen("symptoms")
     object SlotSelection : Screen("slot_selection")
     object MyReservations : Screen("my_reservations")
+    object Profile : Screen("profile")
 }
 
 @Composable
 fun NavGraph(
     navController: NavHostController,
-    viewModel: ReservationViewModel
+    viewModel: ReservationViewModel,
+    authViewModel: AuthViewModel
 ) {
     NavHost(
         navController = navController,
@@ -62,6 +66,9 @@ fun NavGraph(
                     navController.navigate(Screen.Reservation.route)
                 }
             )
+        }
+        composable(Screen.Profile.route) {
+            ProfileScreen(viewModel = authViewModel)
         }
     }
 }

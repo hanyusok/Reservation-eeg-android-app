@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.*
@@ -21,6 +22,7 @@ import androidx.navigation.compose.rememberNavController
 import com.example.reservation_eeg_android_app.ui.navigation.NavGraph
 import com.example.reservation_eeg_android_app.ui.navigation.Screen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
+import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 
 class MainActivity : ComponentActivity() {
@@ -31,10 +33,12 @@ class MainActivity : ComponentActivity() {
             ReservationeegandroidappTheme {
                 val navController = rememberNavController()
                 val viewModel: ReservationViewModel = viewModel()
+                val authViewModel: AuthViewModel = viewModel()
                 
                 val items = listOf(
                     Screen.Reservation to "새 예약",
-                    Screen.MyReservations to "내 예약"
+                    Screen.MyReservations to "내 예약",
+                    Screen.Profile to "프로필"
                 )
 
                 Scaffold(
@@ -47,7 +51,11 @@ class MainActivity : ComponentActivity() {
                                 NavigationBarItem(
                                     icon = { 
                                         Icon(
-                                            if (screen == Screen.Reservation) Icons.Default.DateRange else Icons.Default.List,
+                                            when(screen) {
+                                                Screen.Reservation -> Icons.Default.DateRange
+                                                Screen.MyReservations -> Icons.Default.List
+                                                else -> Icons.Default.AccountCircle
+                                            },
                                             contentDescription = null
                                         )
                                     },
@@ -73,7 +81,8 @@ class MainActivity : ComponentActivity() {
                     Box(modifier = Modifier.padding(innerPadding)) {
                         NavGraph(
                             navController = navController,
-                            viewModel = viewModel
+                            viewModel = viewModel,
+                            authViewModel = authViewModel
                         )
                     }
                 }

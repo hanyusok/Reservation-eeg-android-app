@@ -8,6 +8,8 @@ data class Reservation(
     val id: Int? = null,
     @SerialName("created_at")
     val createdAt: String? = null,
+    @SerialName("user_id")
+    val userId: String? = null,
     @SerialName("patient_name")
     val patientName: String,
     @SerialName("eeg_type")

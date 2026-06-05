@@ -6,6 +6,7 @@ import com.example.reservation_eeg_android_app.data.SupabaseConfig
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.Reservation
+import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -85,10 +86,15 @@ class ReservationViewModel : ViewModel() {
                 _bookedSlots.value = results.mapNotNull { 
                     try { OffsetDateTime.parse(it.reservedAt).toInstant() } catch (e: Exception) { null } 
                 }
-                _userReservations.value = results
-                    .filter { it.patientName == TEST_PATIENT }
-                    .sortedByDescending { it.reservedAt }
-                println("Filtered and sorted to ${_userReservations.value.size} reservations for '$TEST_PATIENT'")
+                
+                val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
+                _userReservations.value = if (currentUserId != null) {
+                    results.filter { it.userId == currentUserId }
+                } else {
+                    results.filter { it.patientName == TEST_PATIENT }
+                }.sortedByDescending { it.reservedAt }
+                
+                println("Filtered and sorted to ${_userReservations.value.size} reservations for user")
             } catch (e: Exception) {
                 e.printStackTrace()
                 _error.value = "목록을 불러오는데 실패했습니다: ${e.message}"
@@ -179,8 +185,12 @@ class ReservationViewModel : ViewModel() {
                         return@launch
                     }
 
+                    val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
+                    val currentUserEmail = supabaseClient.auth.currentSessionOrNull()?.user?.email
+
                     val reservation = Reservation(
-                        patientName = TEST_PATIENT,
+                        userId = currentUserId,
+                        patientName = currentUserEmail ?: TEST_PATIENT,
                         eegType = type,
                         symptoms = symptomText,
                         reservedAt = reservedAt
