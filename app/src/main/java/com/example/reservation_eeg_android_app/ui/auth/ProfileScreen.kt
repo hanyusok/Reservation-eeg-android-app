@@ -164,6 +164,25 @@ fun ProfileDetailForm(
     var familyMembers by remember(profile) { mutableStateOf(profile.familyMembers) }
     var email by remember(profile) { mutableStateOf(profile.email) }
 
+    // Helper function to format phone number: 010-1234-5678
+    fun formatPhoneNumber(input: String): String {
+        val digits = input.filter { it.isDigit() }.take(11)
+        return when {
+            digits.length <= 3 -> digits
+            digits.length <= 7 -> "${digits.substring(0, 3)}-${digits.substring(3)}"
+            else -> "${digits.substring(0, 3)}-${digits.substring(3, 7)}-${digits.substring(7)}"
+        }
+    }
+
+    // Helper function to format resident ID: 900101-1234567
+    fun formatResidentId(input: String): String {
+        val digits = input.filter { it.isDigit() }.take(13)
+        return when {
+            digits.length <= 6 -> digits
+            else -> "${digits.substring(0, 6)}-${digits.substring(6)}"
+        }
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -190,21 +209,41 @@ fun ProfileDetailForm(
         }
 
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = sex, onValueChange = { sex = it }, label = { Text("성별") }, modifier = Modifier.fillMaxWidth())
+        
+        // Sex Selection
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text("성별", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                listOf("남성", "여성").forEach { option ->
+                    FilterChip(
+                        selected = sex == option,
+                        onClick = { sex = option },
+                        label = { Text(option) },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+        }
+
         OutlinedTextField(
             value = residentId,
-            onValueChange = { residentId = it },
+            onValueChange = { residentId = formatResidentId(it) },
             label = { Text("주민등록번호") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            placeholder = { Text("123456-1234567") }
         )
         OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("주소") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
             value = phoneNumber,
-            onValueChange = { phoneNumber = it },
+            onValueChange = { phoneNumber = formatPhoneNumber(it) },
             label = { Text("전화번호") },
             modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
+            placeholder = { Text("010-0000-0000") }
         )
         OutlinedTextField(value = familyMembers, onValueChange = { familyMembers = it }, label = { Text("가족 구성원") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(
