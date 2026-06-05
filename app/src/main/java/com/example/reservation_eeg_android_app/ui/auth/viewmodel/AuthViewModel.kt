@@ -23,6 +23,9 @@ class AuthViewModel : ViewModel() {
     private val _userProfile = MutableStateFlow<UserProfile?>(null)
     val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
 
+    private val _updateSuccess = MutableStateFlow(false)
+    val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
+
     val sessionStatus: StateFlow<SessionStatus> = supabaseClient.auth.sessionStatus
 
     init {
@@ -58,9 +61,11 @@ class AuthViewModel : ViewModel() {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
+            _updateSuccess.value = false
             try {
                 supabaseClient.postgrest["profiles"].upsert(profile)
                 _userProfile.value = profile
+                _updateSuccess.value = true
             } catch (e: Exception) {
                 _error.value = "Profile update failed: ${e.localizedMessage}"
             } finally {

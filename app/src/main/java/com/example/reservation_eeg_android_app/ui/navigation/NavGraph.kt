@@ -13,8 +13,10 @@ import com.example.reservation_eeg_android_app.ui.reservation.SymptomScreen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.auth.ProfileScreen
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
+import com.example.reservation_eeg_android_app.ui.clinic.ClinicScreen
 
 sealed class Screen(val route: String) {
+    object Clinic : Screen("clinic")
     object Reservation : Screen("reservation")
     object Symptoms : Screen("symptoms")
     object SlotSelection : Screen("slot_selection")
@@ -30,8 +32,11 @@ fun NavGraph(
 ) {
     NavHost(
         navController = navController,
-        startDestination = Screen.Reservation.route
+        startDestination = Screen.Clinic.route
     ) {
+        composable(Screen.Clinic.route) {
+            ClinicScreen()
+        }
         composable(Screen.Reservation.route) {
             val isEditing by viewModel.isEditing.collectAsState()
             ReservationScreen(

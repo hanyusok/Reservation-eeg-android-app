@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
@@ -36,6 +37,7 @@ class MainActivity : ComponentActivity() {
                 val authViewModel: AuthViewModel = viewModel()
                 
                 val items = listOf(
+                    Screen.Clinic to "클리닉",
                     Screen.Reservation to "새 예약",
                     Screen.MyReservations to "내 예약",
                     Screen.Profile to "프로필"
@@ -52,6 +54,7 @@ class MainActivity : ComponentActivity() {
                                     icon = { 
                                         Icon(
                                             when(screen) {
+                                                Screen.Clinic -> Icons.Default.Home
                                                 Screen.Reservation -> Icons.Default.DateRange
                                                 Screen.MyReservations -> Icons.Default.List
                                                 else -> Icons.Default.AccountCircle

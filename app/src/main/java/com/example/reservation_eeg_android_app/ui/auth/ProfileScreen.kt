@@ -2,11 +2,16 @@ package com.example.reservation_eeg_android_app.ui.auth
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.reservation_eeg_android_app.model.UserProfile
@@ -20,9 +25,32 @@ fun ProfileScreen(viewModel: AuthViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val userProfile by viewModel.userProfile.collectAsState()
+    val updateSuccess by viewModel.updateSuccess.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    var isEditing by remember { mutableStateOf(false) }
+
+    LaunchedEffect(updateSuccess) {
+        if (updateSuccess) {
+            snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
+            isEditing = false
+        }
+    }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("프로필") }) }
+        topBar = { 
+            TopAppBar(
+                title = { Text(if (isEditing) "프로필 수정" else "프로필") },
+                actions = {
+                    if (sessionStatus is SessionStatus.Authenticated && !isEditing) {
+                        IconButton(onClick = { isEditing = true }) {
+                            Icon(Icons.Default.Edit, contentDescription = "수정")
+                        }
+                    }
+                }
+            ) 
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { innerPadding ->
         Box(
             modifier = Modifier
@@ -33,13 +61,24 @@ fun ProfileScreen(viewModel: AuthViewModel) {
         ) {
             when (val status = sessionStatus) {
                 is SessionStatus.Authenticated -> {
-                    ProfileDetailForm(
-                        profile = userProfile ?: UserProfile(id = status.session.user?.id),
-                        isLoading = isLoading,
-                        error = error,
-                        onUpdate = { viewModel.updateProfile(it) },
-                        onSignOut = { viewModel.signOut() }
-                    )
+                    val currentProfile = userProfile ?: UserProfile(id = status.session.user?.id)
+                    if (isEditing) {
+                        ProfileDetailForm(
+                            profile = currentProfile,
+                            isLoading = isLoading,
+                            error = error,
+                            updateSuccess = updateSuccess,
+                            onUpdate = { viewModel.updateProfile(it) },
+                            onCancel = { isEditing = false },
+                            onSignOut = { viewModel.signOut() }
+                        )
+                    } else {
+                        UserProfileCard(
+                            profile = currentProfile,
+                            onEdit = { isEditing = true },
+                            onSignOut = { viewModel.signOut() }
+                        )
+                    }
                 }
                 else -> {
                     AuthForm(viewModel, isLoading, error)
@@ -50,11 +89,70 @@ fun ProfileScreen(viewModel: AuthViewModel) {
 }
 
 @Composable
+fun UserProfileCard(
+    profile: UserProfile,
+    onEdit: () -> Unit,
+    onSignOut: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                ProfileInfoRow("이름", profile.name.ifBlank { "미지정" })
+                ProfileInfoRow("이메일", profile.email)
+                ProfileInfoRow("전화번호", profile.phoneNumber.ifBlank { "미지정" })
+                ProfileInfoRow("주소", profile.address.ifBlank { "미지정" })
+                ProfileInfoRow("성별", profile.sex.ifBlank { "미지정" })
+                ProfileInfoRow("가족 구성원", profile.familyMembers.ifBlank { "미지정" })
+            }
+        }
+
+        Button(
+            onClick = onEdit,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(ButtonDefaults.IconSize))
+            Spacer(Modifier.size(ButtonDefaults.IconSpacing))
+            Text("프로필 수정하기")
+        }
+
+        OutlinedButton(
+            onClick = onSignOut,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Text("로그아웃")
+        }
+    }
+}
+
+@Composable
+fun ProfileInfoRow(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(text = label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        Text(text = value, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
+        HorizontalDivider(modifier = Modifier.padding(top = 4.dp), thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
+    }
+}
+
+@Composable
 fun ProfileDetailForm(
     profile: UserProfile,
     isLoading: Boolean,
     error: String?,
+    updateSuccess: Boolean,
     onUpdate: (UserProfile) -> Unit,
+    onCancel: () -> Unit,
     onSignOut: () -> Unit
 ) {
     var name by remember(profile) { mutableStateOf(profile.name) }
@@ -74,17 +172,47 @@ fun ProfileDetailForm(
     ) {
         Text("사용자 정보 설정", style = MaterialTheme.typography.headlineSmall)
         
+        if (updateSuccess) {
+            Card(
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text(
+                    "프로필 정보가 성공적으로 저장되었습니다.",
+                    modifier = Modifier.padding(16.dp),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+        }
+
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = sex, onValueChange = { sex = it }, label = { Text("성별") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = residentId, onValueChange = { residentId = it }, label = { Text("주민등록번호") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = residentId,
+            onValueChange = { residentId = it },
+            label = { Text("주민등록번호") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+        )
         OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("주소") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = phoneNumber, onValueChange = { phoneNumber = it }, label = { Text("전화번호") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = phoneNumber,
+            onValueChange = { phoneNumber = it },
+            label = { Text("전화번호") },
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone)
+        )
         OutlinedTextField(value = familyMembers, onValueChange = { familyMembers = it }, label = { Text("가족 구성원") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = email, onValueChange = { email = it }, label = { Text("이메일") }, modifier = Modifier.fillMaxWidth(), enabled = false)
 
         if (error != null) {
             Text(text = error, color = MaterialTheme.colorScheme.error)
         }
+
+        val isFormValid = name.isNotBlank() && phoneNumber.isNotBlank() && residentId.isNotBlank()
 
         Button(
             onClick = {
@@ -98,14 +226,18 @@ fun ProfileDetailForm(
                 ))
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
+            enabled = !isLoading && isFormValid
         ) {
             if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
             else Text("저장하기")
         }
 
-        OutlinedButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
-            Text("로그아웃")
+        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+            Text("취소")
+        }
+
+        TextButton(onClick = onSignOut, modifier = Modifier.fillMaxWidth()) {
+            Text("로그아웃", color = MaterialTheme.colorScheme.error)
         }
     }
 }
@@ -130,7 +262,8 @@ fun AuthForm(viewModel: AuthViewModel, isLoading: Boolean, error: String?) {
             value = email,
             onValueChange = { email = it },
             label = { Text("이메일") },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
         )
         Spacer(modifier = Modifier.height(8.dp))
         
@@ -139,7 +272,8 @@ fun AuthForm(viewModel: AuthViewModel, isLoading: Boolean, error: String?) {
             onValueChange = { password = it },
             label = { Text("비밀번호") },
             visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
         
         if (error != null) {
