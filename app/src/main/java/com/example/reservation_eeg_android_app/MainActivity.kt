@@ -54,6 +54,9 @@ class MainActivity : ComponentActivity() {
                                     label = { Text(label) },
                                     selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                                     onClick = {
+                                        if (screen == Screen.Reservation) {
+                                            viewModel.clearEditing()
+                                        }
                                         navController.navigate(screen.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true

@@ -1,7 +1,8 @@
 package com.example.reservation_eeg_android_app.ui.navigation
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -28,12 +29,11 @@ fun NavGraph(
         startDestination = Screen.Reservation.route
     ) {
         composable(Screen.Reservation.route) {
-            LaunchedEffect(Unit) {
-                viewModel.clearEditing()
-            }
+            val isEditing by viewModel.isEditing.collectAsState()
             ReservationScreen(
                 viewModel = viewModel,
-                onNext = { navController.navigate(Screen.Symptoms.route) }
+                onNext = { navController.navigate(Screen.Symptoms.route) },
+                onBack = if (isEditing) { { navController.popBackStack() } } else null
             )
         }
         composable(Screen.Symptoms.route) {
@@ -59,7 +59,7 @@ fun NavGraph(
                 viewModel = viewModel,
                 onEdit = { reservation ->
                     viewModel.startEditing(reservation)
-                    navController.navigate(Screen.SlotSelection.route)
+                    navController.navigate(Screen.Reservation.route)
                 }
             )
         }

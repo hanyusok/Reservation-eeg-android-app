@@ -11,9 +11,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.example.reservation_eeg_android_app.data.SupabaseConfig
 import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import kotlinx.coroutines.launch
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -22,45 +25,86 @@ fun MyReservationsScreen(
     onEdit: (Reservation) -> Unit
 ) {
     val reservations by viewModel.userReservations.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
     val scope = rememberCoroutineScope()
+    val snackbarHostState = remember { SnackbarHostState() }
+    
+    var reservationToDelete by remember { mutableStateOf<Reservation?>(null) }
+
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+        }
+    }
 
     LaunchedEffect(Unit) {
         viewModel.fetchBookedSlots()
     }
 
+    if (reservationToDelete != null) {
+        AlertDialog(
+            onDismissRequest = { reservationToDelete = null },
+            title = { Text("예약 삭제") },
+            text = { Text("이 예약을 삭제하시겠습니까?") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        reservationToDelete?.id?.let { id ->
+                            scope.launch {
+                                viewModel.deleteReservation(id)
+                            }
+                        }
+                        reservationToDelete = null
+                    },
+                    colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("삭제")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { reservationToDelete = null }) {
+                    Text("취소")
+                }
+            }
+        )
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(title = { Text("내 예약 목록") })
         }
     ) { innerPadding ->
-        if (reservations.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("예약된 내역이 없습니다.")
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(innerPadding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                items(reservations) { reservation ->
-                    ReservationItem(
-                        reservation = reservation,
-                        onDelete = { 
-                            scope.launch {
-                                reservation.id?.let { viewModel.deleteReservation(it) } 
-                            }
-                        },
-                        onEdit = { onEdit(reservation) }
-                    )
+        Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {
+            if (reservations.isEmpty() && !isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("예약된 내역이 없습니다.")
                 }
+            } else {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(reservations) { reservation ->
+                        ReservationItem(
+                            reservation = reservation,
+                            onDelete = { reservationToDelete = reservation },
+                            onEdit = { onEdit(reservation) }
+                        )
+                    }
+                }
+            }
+
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.align(Alignment.Center)
+                )
             }
         }
     }
@@ -84,12 +128,23 @@ fun ReservationItem(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column {
+                    val displayTime = remember(reservation.reservedAt) {
+                        try {
+                            val dt = OffsetDateTime.parse(reservation.reservedAt)
+                            // Convert to KST explicitly in case Supabase returned UTC
+                            val kstDt = dt.atZoneSameInstant(SupabaseConfig.KST_ZONE_ID)
+                            kstDt.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                        } catch (e: Exception) {
+                            reservation.reservedAt
+                        }
+                    }
+
                     Text(
                         text = reservation.eegType.displayName,
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(
-                        text = "시간: ${reservation.reservedAt.replace("T", " ")}",
+                        text = "시간: $displayTime (KST)",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
