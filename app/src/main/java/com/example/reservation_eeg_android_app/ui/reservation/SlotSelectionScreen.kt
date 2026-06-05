@@ -17,9 +17,18 @@ fun SlotSelectionScreen(
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
-    var selectedDate by remember { mutableStateOf("2026-06-10") }
+    val selectedDate = "2026-06-10"
     val mockSlots = listOf("09:00", "10:30", "13:00", "14:30", "16:00")
     var selectedSlot by remember { mutableStateOf<String?>(null) }
+    
+    val bookedSlots by viewModel.bookedSlots.collectAsState()
+    val isSuccess by viewModel.isReservationSuccess.collectAsState()
+
+    LaunchedEffect(isSuccess) {
+        if (isSuccess) {
+            onComplete()
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -49,10 +58,14 @@ fun SlotSelectionScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(mockSlots) { slot ->
+                    val fullSlotTime = "${selectedDate}T$slot"
+                    val isBooked = bookedSlots.contains(fullSlotTime)
+                    
                     SlotItem(
                         slot = slot,
                         isSelected = slot == selectedSlot,
-                        onClick = { selectedSlot = slot }
+                        isBooked = isBooked,
+                        onClick = { if (!isBooked) selectedSlot = slot }
                     )
                 }
             }
@@ -61,7 +74,6 @@ fun SlotSelectionScreen(
                 onClick = {
                     selectedSlot?.let {
                         viewModel.completeReservation(it)
-                        onComplete()
                     }
                 },
                 modifier = Modifier.fillMaxWidth(),
@@ -74,15 +86,15 @@ fun SlotSelectionScreen(
 }
 
 @Composable
-fun SlotItem(slot: String, isSelected: Boolean, onClick: () -> Unit) {
+fun SlotItem(slot: String, isSelected: Boolean, isBooked: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick),
-        colors = if (isSelected) {
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-        } else {
-            CardDefaults.cardColors()
+            .clickable(enabled = !isBooked, onClick = onClick),
+        colors = when {
+            isBooked -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+            isSelected -> CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+            else -> CardDefaults.cardColors()
         }
     ) {
         Row(
@@ -91,9 +103,14 @@ fun SlotItem(slot: String, isSelected: Boolean, onClick: () -> Unit) {
                 .fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = slot, style = MaterialTheme.typography.bodyLarge)
-            if (isSelected) {
-                Text(text = "선택됨", color = MaterialTheme.colorScheme.primary)
+            Text(
+                text = slot, 
+                style = MaterialTheme.typography.bodyLarge,
+                color = if (isBooked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+            )
+            when {
+                isBooked -> Text(text = "예약 불가", color = MaterialTheme.colorScheme.error)
+                isSelected -> Text(text = "선택됨", color = MaterialTheme.colorScheme.primary)
             }
         }
     }

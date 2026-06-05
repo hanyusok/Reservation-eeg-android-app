@@ -73,7 +73,7 @@ fun SymptomScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = symptoms.isNotBlank()
             ) {
-                Text("AI Triage 분석 요청")
+                Text("다음 단계 (시간 선택)")
             }
         }
     }
