@@ -3,6 +3,7 @@ package com.example.reservation_eeg_android_app.ui.auth.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reservation_eeg_android_app.data.supabaseClient
+import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
@@ -28,15 +29,21 @@ class AuthViewModel : ViewModel() {
     private val _updateSuccess = MutableStateFlow(false)
     val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
 
+    private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
+    val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
+
     val sessionStatus: StateFlow<SessionStatus> = supabaseClient.auth.sessionStatus
 
     init {
         viewModelScope.launch {
             sessionStatus.collect { status ->
                 if (status is SessionStatus.Authenticated) {
-                    fetchProfile(status.session.user?.id ?: "")
+                    val userId = status.session.user?.id ?: ""
+                    fetchProfile(userId)
+                    fetchFamilyMembers()
                 } else {
                     _userProfile.value = null
+                    _familyMembers.value = emptyList()
                 }
             }
         }
@@ -149,6 +156,79 @@ class AuthViewModel : ViewModel() {
                 supabaseClient.auth.signOut()
             } catch (e: Exception) {
                 _error.value = "Sign out failed: ${e.localizedMessage}"
+            }
+        }
+    }
+
+    fun fetchFamilyMembers() {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val members = supabaseClient.postgrest["family_members"]
+                    .select {
+                        filter {
+                            eq("user_id", userId)
+                        }
+                    }
+                    .decodeList<FamilyMember>()
+                _familyMembers.value = members
+            } catch (e: Exception) {
+                e.printStackTrace()
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun addFamilyMember(member: FamilyMember) {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val memberWithUserId = member.copy(userId = userId)
+                supabaseClient.postgrest["family_members"].insert(memberWithUserId)
+                fetchFamilyMembers()
+            } catch (e: Exception) {
+                _error.value = "Failed to add family member: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun updateFamilyMember(member: FamilyMember) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                supabaseClient.postgrest["family_members"].update(member) {
+                    filter {
+                        eq("id", member.id ?: 0)
+                    }
+                }
+                fetchFamilyMembers()
+            } catch (e: Exception) {
+                _error.value = "Failed to update family member: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
+    fun deleteFamilyMember(memberId: Int) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                supabaseClient.postgrest["family_members"].delete {
+                    filter {
+                        eq("id", memberId)
+                    }
+                }
+                fetchFamilyMembers()
+            } catch (e: Exception) {
+                _error.value = "Failed to delete family member: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

@@ -17,6 +17,7 @@ import com.example.reservation_eeg_android_app.ui.reservation.SlotSelectionScree
 import com.example.reservation_eeg_android_app.ui.reservation.SymptomScreen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.auth.ProfileScreen
+import com.example.reservation_eeg_android_app.ui.auth.FamilyMembersScreen
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.clinic.ClinicScreen
 
@@ -29,6 +30,7 @@ sealed class Screen(val route: String) {
     object Notification : Screen("notification")
     object Community : Screen("community")
     object Profile : Screen("profile")
+    object FamilyMembers : Screen("family_members")
 }
 
 @Composable
@@ -93,7 +95,16 @@ fun NavGraph(
             }
         }
         composable(Screen.Profile.route) {
-            ProfileScreen(viewModel = authViewModel)
+            ProfileScreen(
+                viewModel = authViewModel,
+                onNavigateToFamilyMembers = { navController.navigate(Screen.FamilyMembers.route) }
+            )
+        }
+        composable(Screen.FamilyMembers.route) {
+            FamilyMembersScreen(
+                viewModel = authViewModel,
+                onBack = { navController.popBackStack() }
+            )
         }
     }
 }
