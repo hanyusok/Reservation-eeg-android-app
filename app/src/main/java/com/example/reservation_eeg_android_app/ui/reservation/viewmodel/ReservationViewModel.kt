@@ -171,17 +171,20 @@ class ReservationViewModel : ViewModel() {
         val reservedAt = "${date}T$slot:00${SupabaseConfig.KST_OFFSET}"
         
         viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
             try {
                 if (editingReservationId != null) {
                     updateReservation(editingReservationId!!, slot)
                     _isReservationSuccess.value = true
+                    _isEditing.value = false
                     editingReservationId = null
                 } else {
                     val reservedInstant = OffsetDateTime.parse(reservedAt).toInstant()
                     
-                    // Check locally first for NEW reservations
                     if (_bookedSlots.value.contains(reservedInstant)) {
-                        println("Slot already booked")
+                        _error.value = "이미 예약된 시간대입니다."
+                        _isLoading.value = false
                         return@launch
                     }
 
@@ -196,20 +199,15 @@ class ReservationViewModel : ViewModel() {
                         reservedAt = reservedAt
                     )
                     
-                    try {
-                        supabaseClient.postgrest["bookings"].insert(reservation)
-                        _isReservationSuccess.value = true
-                        fetchBookedSlots() // Refresh booked slots
-                    } catch (e: Exception) {
-                        e.printStackTrace()
-                        // This handles the "duplicate key" error if slot was taken between fetch and insert
-                        _isLoading.value = false
-                        // You might want to update a state to show a "Slot already taken" message
-                    }
+                    supabaseClient.postgrest["bookings"].insert(reservation)
+                    _isReservationSuccess.value = true
+                    fetchBookedSlots() 
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                // Handle error
+                _error.value = "예약 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

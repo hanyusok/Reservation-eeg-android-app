@@ -10,9 +10,10 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountCircle
-import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Groups
 import androidx.compose.material3.*
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -42,8 +43,9 @@ class MainActivity : ComponentActivity() {
                 
                 val items = listOf(
                     Screen.Clinic to "클리닉",
-                    Screen.Reservation to "새 예약",
                     Screen.MyReservations to "내 예약",
+                    Screen.Notification to "알림",
+                    Screen.Community to "커뮤니티",
                     Screen.Profile to "프로필"
                 )
 
@@ -59,8 +61,9 @@ class MainActivity : ComponentActivity() {
                                         Icon(
                                             when(screen) {
                                                 Screen.Clinic -> Icons.Default.Home
-                                                Screen.Reservation -> Icons.Default.DateRange
                                                 Screen.MyReservations -> Icons.Default.List
+                                                Screen.Notification -> Icons.Default.Notifications
+                                                Screen.Community -> Icons.Default.Groups
                                                 else -> Icons.Default.AccountCircle
                                             },
                                             contentDescription = null
@@ -69,9 +72,6 @@ class MainActivity : ComponentActivity() {
                                     label = { Text(label) },
                                     selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
                                     onClick = {
-                                        if (screen == Screen.Reservation) {
-                                            viewModel.clearEditing()
-                                        }
                                         navController.navigate(screen.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true

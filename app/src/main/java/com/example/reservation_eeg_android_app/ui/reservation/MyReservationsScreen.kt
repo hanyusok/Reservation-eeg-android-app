@@ -4,8 +4,10 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,7 +24,8 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun MyReservationsScreen(
     viewModel: ReservationViewModel,
-    onEdit: (Reservation) -> Unit
+    onEdit: (Reservation) -> Unit,
+    onNewReservation: () -> Unit
 ) {
     val reservations by viewModel.userReservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -73,7 +76,23 @@ fun MyReservationsScreen(
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(title = { Text("내 예약 목록") })
+            TopAppBar(
+                title = { Text("내 예약 목록") },
+                actions = {
+                    IconButton(onClick = { viewModel.fetchBookedSlots() }) {
+                        Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
+                    }
+                }
+            )
+        },
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = onNewReservation,
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor = MaterialTheme.colorScheme.onPrimary
+            ) {
+                Icon(Icons.Default.Add, contentDescription = "New Reservation")
+            }
         }
     ) { innerPadding ->
         Box(modifier = Modifier.fillMaxSize().padding(innerPadding)) {

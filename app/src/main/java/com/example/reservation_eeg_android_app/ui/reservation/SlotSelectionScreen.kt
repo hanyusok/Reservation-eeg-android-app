@@ -39,6 +39,7 @@ fun SlotSelectionScreen(
     LaunchedEffect(isSuccess) {
         if (isSuccess) {
             onComplete()
+            viewModel.resetSuccess() // Reset state after navigation
         }
     }
 

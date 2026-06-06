@@ -1,8 +1,13 @@
 package com.example.reservation_eeg_android_app.ui.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -21,6 +26,8 @@ sealed class Screen(val route: String) {
     object Symptoms : Screen("symptoms")
     object SlotSelection : Screen("slot_selection")
     object MyReservations : Screen("my_reservations")
+    object Notification : Screen("notification")
+    object Community : Screen("community")
     object Profile : Screen("profile")
 }
 
@@ -38,11 +45,10 @@ fun NavGraph(
             ClinicScreen()
         }
         composable(Screen.Reservation.route) {
-            val isEditing by viewModel.isEditing.collectAsState()
             ReservationScreen(
                 viewModel = viewModel,
                 onNext = { navController.navigate(Screen.Symptoms.route) },
-                onBack = if (isEditing) { { navController.popBackStack() } } else null
+                onBack = { navController.popBackStack() }
             )
         }
         composable(Screen.Symptoms.route) {
@@ -69,8 +75,22 @@ fun NavGraph(
                 onEdit = { reservation ->
                     viewModel.startEditing(reservation)
                     navController.navigate(Screen.Reservation.route)
+                },
+                onNewReservation = {
+                    viewModel.clearEditing()
+                    navController.navigate(Screen.Reservation.route)
                 }
             )
+        }
+        composable(Screen.Notification.route) {
+            Box(modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("알림 화면 (준비 중)")
+            }
+        }
+        composable(Screen.Community.route) {
+            Box(modifier = androidx.compose.ui.Modifier.fillMaxSize(), contentAlignment = androidx.compose.ui.Alignment.Center) {
+                Text("커뮤니티 화면 (준비 중)")
+            }
         }
         composable(Screen.Profile.route) {
             ProfileScreen(viewModel = authViewModel)
