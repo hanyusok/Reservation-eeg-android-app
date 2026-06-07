@@ -10,6 +10,7 @@ import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
+import io.github.jan.supabase.postgrest.query.Order
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.Instant
@@ -156,16 +157,17 @@ class ReservationViewModel : ViewModel() {
                     try { OffsetDateTime.parse(it.reservedAt).toInstant() } catch (_: Exception) { null } 
                 }
                 
-                // Fetch only USER'S reservations using server-side filtering
+                // Fetch only USER'S reservations using server-side filtering and ordering
                 if (currentUserId != null) {
                     val userResults = supabaseClient.postgrest["bookings"]
                         .select {
                             filter {
                                 eq("user_id", currentUserId)
                             }
+                            order("reserved_at", order = Order.DESCENDING)
                         }
                         .decodeList<Reservation>()
-                    _userReservations.value = userResults.sortedByDescending { it.reservedAt }
+                    _userReservations.value = userResults
                 } else {
                     _userReservations.value = emptyList()
                 }

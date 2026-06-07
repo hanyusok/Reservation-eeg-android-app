@@ -20,7 +20,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.*
@@ -42,7 +41,7 @@ import io.github.jan.supabase.auth.user.UserSession
 @Composable
 fun ProfileScreen(
     viewModel: AuthViewModel,
-    onNavigateToFamilyMembers: () -> Unit
+    onNavigateToFamilyMembers: () -> Unit,
 ) {
     val sessionStatus by viewModel.sessionStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()

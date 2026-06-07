@@ -1,5 +1,6 @@
 package com.example.reservation_eeg_android_app.ui.community
 
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
@@ -11,6 +12,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Comment
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -24,7 +27,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -48,18 +50,26 @@ fun CommunityScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val isPostSuccess by viewModel.isPostSuccess.collectAsState()
+    val comments by viewModel.comments.collectAsState()
 
     CommunityContent(
         posts = posts,
+        comments = comments,
         isLoading = isLoading,
         error = error,
         isPostSuccess = isPostSuccess,
         isAuthenticated = isAuthenticated,
         onFetchPosts = { viewModel.fetchPosts() },
         onCreatePost = { cat, title, content, image -> viewModel.createPost(cat, title, content, image) },
-        onUpdatePost = { id, cat, title, content, image -> viewModel.updatePost(id, cat, title, content, image) },
-        onLikePost = { viewModel.likePost(it) },
+        onUpdatePost = { id, cat, title, content, image, removed -> 
+            Log.d("CommunityDebug", "CommunityScreen: onUpdatePost called for ID $id")
+            viewModel.updatePost(id, cat, title, content, image, removed) 
+        },
+        onToggleLike = { viewModel.toggleLike(it) },
         onDeletePost = { viewModel.deletePost(it) },
+        onFetchComments = { viewModel.fetchComments(it) },
+        onAddComment = { id, content -> viewModel.addComment(id, content) },
+        onDeleteComment = { pid, cid -> viewModel.deleteComment(pid, cid) },
         onResetSuccess = { viewModel.resetSuccess() },
         onNavigateToLogin = onNavigateToLogin
     )
@@ -69,15 +79,19 @@ fun CommunityScreen(
 @Composable
 fun CommunityContent(
     posts: List<CommunityPost>,
+    comments: Map<Int, List<com.example.reservation_eeg_android_app.model.PostComment>>,
     isLoading: Boolean,
     error: String?,
     isPostSuccess: Boolean,
     isAuthenticated: Boolean,
     onFetchPosts: () -> Unit,
     onCreatePost: (String, String, String, ByteArray?) -> Unit,
-    onUpdatePost: (Int, String, String, String, ByteArray?) -> Unit,
-    onLikePost: (Int) -> Unit,
+    onUpdatePost: (Int, String, String, String, ByteArray?, Boolean) -> Unit,
+    onToggleLike: (Int) -> Unit,
     onDeletePost: (Int) -> Unit,
+    onFetchComments: (Int) -> Unit,
+    onAddComment: (Int, String) -> Unit,
+    onDeleteComment: (Int, Long) -> Unit,
     onResetSuccess: () -> Unit,
     onNavigateToLogin: () -> Unit
 ) {
@@ -151,9 +165,13 @@ fun CommunityContent(
                     items(filteredPosts) { post ->
                         PostCard(
                             post = post,
-                            onLike = { post.id?.let { onLikePost(it) } },
+                            comments = comments[post.id ?: -1] ?: emptyList(),
+                            onToggleLike = { post.id?.let { onToggleLike(it) } },
                             onDelete = { post.id?.let { onDeletePost(it) } },
-                            onEdit = { editingPost = post }
+                            onEdit = { editingPost = post },
+                            onFetchComments = { post.id?.let { onFetchComments(it) } },
+                            onAddComment = { content -> post.id?.let { onAddComment(it, content) } },
+                            onDeleteComment = { cid -> post.id?.let { onDeleteComment(it, cid) } }
                         )
                     }
                 }
@@ -192,7 +210,7 @@ fun CommunityContent(
         if (showCreateDialog) {
             CreatePostDialog(
                 onDismiss = { showCreateDialog = false },
-                onPost = { cat, title, content, img -> onCreatePost(cat, title, content, img) }
+                onPost = { cat, title, content, img, _ -> onCreatePost(cat, title, content, img) }
             )
         }
 
@@ -200,8 +218,8 @@ fun CommunityContent(
             CreatePostDialog(
                 postToEdit = editingPost,
                 onDismiss = { editingPost = null },
-                onPost = { cat, title, content, img -> 
-                    editingPost?.id?.let { onUpdatePost(it, cat, title, content, img) }
+                onPost = { cat, title, content, img, removed -> 
+                    editingPost?.id?.let { onUpdatePost(it, cat, title, content, img, removed) }
                 }
             )
         }
@@ -236,13 +254,24 @@ fun CategoryRow(
 @Composable
 fun PostCard(
     post: CommunityPost,
-    onLike: () -> Unit,
+    comments: List<com.example.reservation_eeg_android_app.model.PostComment>,
+    onToggleLike: () -> Unit,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onFetchComments: () -> Unit,
+    onAddComment: (String) -> Unit,
+    onDeleteComment: (Long) -> Unit
 ) {
     val currentUserId = remember { supabaseClient.auth.currentUserOrNull()?.id }
     val isOwner = post.userId == currentUserId
     var showMenu by remember { mutableStateOf(false) }
+    var showComments by remember { mutableStateOf(false) }
+
+    LaunchedEffect(showComments) {
+        if (showComments) {
+            onFetchComments()
+        }
+    }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -356,24 +385,121 @@ fun PostCard(
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     Row(
-                        modifier = Modifier.clickable { onLike() },
+                        modifier = Modifier.clickable { onToggleLike() },
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = if (post.likesCount > 0) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                            imageVector = if (post.isLiked) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                             contentDescription = null,
                             modifier = Modifier.size(20.dp),
-                            tint = if (post.likesCount > 0) Color.Red else LocalContentColor.current
+                            tint = if (post.isLiked) Color.Red else LocalContentColor.current
                         )
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("${post.likesCount}", style = MaterialTheme.typography.labelMedium)
+                        Text(post.likesCount.toString(), style = MaterialTheme.typography.labelMedium)
                     }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Comment, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Row(
+                        modifier = Modifier.clickable { showComments = !showComments },
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Comment, contentDescription = null, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("0", style = MaterialTheme.typography.labelMedium)
+                        Text(post.commentsCount.toString(), style = MaterialTheme.typography.labelMedium)
                     }
                 }
+
+                if (showComments) {
+                    CommentSection(
+                        comments = comments,
+                        onAddComment = onAddComment,
+                        onDeleteComment = onDeleteComment,
+                        currentUserId = currentUserId
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun CommentSection(
+    comments: List<com.example.reservation_eeg_android_app.model.PostComment>,
+    onAddComment: (String) -> Unit,
+    onDeleteComment: (Long) -> Unit,
+    currentUserId: String?
+) {
+    var newComment by remember { mutableStateOf("") }
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp)
+    ) {
+        HorizontalDivider(thickness = 0.5.dp)
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        comments.forEach { comment ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Surface(
+                    modifier = Modifier.size(24.dp),
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.secondaryContainer
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(comment.userName.take(1), style = MaterialTheme.typography.labelSmall)
+                    }
+                }
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(comment.userName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelMedium)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        comment.createdAt?.let {
+                            Text(it.take(10), style = MaterialTheme.typography.labelSmall, color = Color.Gray)
+                        }
+                    }
+                    Text(comment.content, style = MaterialTheme.typography.bodySmall)
+                }
+                if (comment.userId == currentUserId) {
+                    IconButton(
+                        onClick = { comment.id?.let { onDeleteComment(it) } },
+                        modifier = Modifier.size(24.dp)
+                    ) {
+                        Icon(Icons.Default.Close, contentDescription = "삭제", modifier = Modifier.size(16.dp), tint = Color.Gray)
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OutlinedTextField(
+                value = newComment,
+                onValueChange = { newComment = it },
+                placeholder = { Text("댓글을 입력하세요...", style = MaterialTheme.typography.bodySmall) },
+                modifier = Modifier.weight(1f),
+                textStyle = MaterialTheme.typography.bodySmall,
+                maxLines = 2
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = {
+                    if (newComment.isNotBlank()) {
+                        onAddComment(newComment)
+                        newComment = ""
+                    }
+                },
+                enabled = newComment.isNotBlank()
+            ) {
+                Icon(Icons.AutoMirrored.Filled.Send, contentDescription = "전송")
             }
         }
     }
@@ -384,18 +510,22 @@ fun PostCard(
 fun CreatePostDialog(
     postToEdit: CommunityPost? = null,
     onDismiss: () -> Unit,
-    onPost: (String, String, String, ByteArray?) -> Unit
+    onPost: (String, String, String, ByteArray?, Boolean) -> Unit // Added Boolean for isImageRemoved
 ) {
     var selectedCat by remember { mutableStateOf(postToEdit?.category ?: communityCategories[0]) }
     var title by remember { mutableStateOf(postToEdit?.title ?: "") }
     var content by remember { mutableStateOf(postToEdit?.content ?: "") }
     var selectedImageUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var isImageRemoved by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: android.net.Uri? ->
-        selectedImageUri = uri
+        if (uri != null) {
+            selectedImageUri = uri
+            isImageRemoved = false
+        }
     }
 
     AlertDialog(
@@ -435,10 +565,12 @@ fun CreatePostDialog(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    if (selectedImageUri != null || postToEdit?.imageUrl != null) {
+                    val currentImageUrl = if (isImageRemoved) null else (selectedImageUri ?: postToEdit?.imageUrl)
+                    
+                    if (currentImageUrl != null) {
                         Box(modifier = Modifier.height(120.dp).fillMaxWidth()) {
                             AsyncImage(
-                                model = selectedImageUri ?: postToEdit?.imageUrl,
+                                model = currentImageUrl,
                                 contentDescription = null,
                                 modifier = Modifier.fillMaxSize().clip(RoundedCornerShape(8.dp)),
                                 contentScale = ContentScale.Crop
@@ -446,7 +578,7 @@ fun CreatePostDialog(
                             IconButton(
                                 onClick = { 
                                     selectedImageUri = null
-                                    // Note: In a real app, you might want to track if the existing image was removed
+                                    isImageRemoved = true
                                 },
                                 modifier = Modifier.align(Alignment.TopEnd)
                             ) {
@@ -469,10 +601,16 @@ fun CreatePostDialog(
         confirmButton = {
             Button(
                 onClick = {
-                    val imageBytes = selectedImageUri?.let { uri ->
-                        context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                    Log.d("CommunityDebug", "CreatePostDialog: Confirm button clicked. Title: $title")
+                    val imageBytes = try {
+                        selectedImageUri?.let { uri ->
+                            context.contentResolver.openInputStream(uri)?.use { it.readBytes() }
+                        }
+                    } catch (e: Exception) {
+                        Log.e("CommunityDebug", "CreatePostDialog: Error reading image", e)
+                        null
                     }
-                    onPost(selectedCat, title, content, imageBytes)
+                    onPost(selectedCat, title, content, imageBytes, isImageRemoved)
                 },
                 enabled = title.isNotBlank() && content.isNotBlank()
             ) {
@@ -514,15 +652,19 @@ fun CommunityScreenPreview() {
     com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme {
         CommunityContent(
             posts = samplePosts,
+            comments = emptyMap(),
             isLoading = false,
             error = null,
             isPostSuccess = false,
             isAuthenticated = true,
             onFetchPosts = {},
             onCreatePost = { _, _, _, _ -> },
-            onUpdatePost = { _, _, _, _, _ -> },
-            onLikePost = {},
-            onDeletePost = {},
+            onUpdatePost = { _, _, _, _, _, _ -> },
+            onToggleLike = { _ -> },
+            onDeletePost = { _ -> },
+            onFetchComments = { _ -> },
+            onAddComment = { _, _ -> },
+            onDeleteComment = { _, _ -> },
             onResetSuccess = {},
             onNavigateToLogin = {}
         )

@@ -17,8 +17,12 @@ data class CommunityPost(
     val imageUrl: String? = null,
     @SerialName("likes_count")
     val likesCount: Int = 0,
+    @SerialName("comments_count")
+    val commentsCount: Int = 0,
     @SerialName("created_at")
-    val createdAt: String? = null
+    val createdAt: String? = null,
+    // Client-side transient fields
+    var isLiked: Boolean = false
 )
 
 val communityCategories = listOf(
