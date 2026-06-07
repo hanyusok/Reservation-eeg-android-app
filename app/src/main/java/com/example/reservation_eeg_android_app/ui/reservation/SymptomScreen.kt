@@ -4,12 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
+import com.example.reservation_eeg_android_app.ui.util.AppTextField
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -30,7 +31,7 @@ fun SymptomScreen(
                 title = { Text("증상 체크리스트") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "뒤로가기")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "뒤로가기")
                     }
                 }
             )
@@ -56,13 +57,14 @@ fun SymptomScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
-            OutlinedTextField(
+            AppTextField(
                 value = symptoms,
                 onValueChange = { viewModel.updateSymptoms(it) },
+                label = "증상 입력",
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(200.dp),
-                placeholder = { Text("예: 최근 갑작스러운 의식 소실, 경련 등") }
+                placeholder = "예: 최근 갑작스러운 의식 소실, 경련 등"
             )
             
             Spacer(modifier = Modifier.height(24.dp))

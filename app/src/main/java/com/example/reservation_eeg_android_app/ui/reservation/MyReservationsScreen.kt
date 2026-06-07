@@ -16,6 +16,7 @@ import androidx.compose.ui.unit.dp
 import com.example.reservation_eeg_android_app.data.SupabaseConfig
 import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
+import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -24,14 +25,31 @@ import java.time.format.DateTimeFormatter
 @Composable
 fun MyReservationsScreen(
     viewModel: ReservationViewModel,
+    sessionStatus: SessionStatus,
     onEdit: (Reservation) -> Unit,
-    onNewReservation: () -> Unit
+    onNewReservation: () -> Unit,
+    onNavigateToLogin: () -> Unit
 ) {
     val reservations by viewModel.userReservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
+    
+    val isAuthenticated = sessionStatus is SessionStatus.Authenticated
+    
+    LaunchedEffect(sessionStatus) {
+        if (!isAuthenticated) {
+            val result = snackbarHostState.showSnackbar(
+                message = "로그인이 필요한 서비스입니다. 예약을 위해 먼저 로그인해주세요.",
+                actionLabel = "로그인",
+                duration = SnackbarDuration.Long
+            )
+            if (result == SnackbarResult.ActionPerformed) {
+                onNavigateToLogin()
+            }
+        }
+    }
     
     var reservationToDelete by remember { mutableStateOf<Reservation?>(null) }
 
@@ -87,7 +105,21 @@ fun MyReservationsScreen(
         },
         floatingActionButton = {
             FloatingActionButton(
-                onClick = onNewReservation,
+                onClick = {
+                    if (isAuthenticated) {
+                        onNewReservation()
+                    } else {
+                        scope.launch {
+                            val result = snackbarHostState.showSnackbar(
+                                message = "로그인이 필요한 서비스입니다.",
+                                actionLabel = "로그인"
+                            )
+                            if (result == SnackbarResult.ActionPerformed) {
+                                onNavigateToLogin()
+                            }
+                        }
+                    }
+                },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary
             ) {

@@ -35,6 +35,7 @@ fun SlotSelectionScreen(
     var selectedSlot by remember { mutableStateOf<String?>(null) }
     
     val bookedSlots by viewModel.bookedSlots.collectAsState()
+    val originalReservedAt by viewModel.originalReservedAt.collectAsState()
     val isSuccess by viewModel.isReservationSuccess.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
 
@@ -133,13 +134,16 @@ fun SlotSelectionScreen(
                         }
                         
                         val isBooked = slotInstant != null && bookedSlots.contains(slotInstant)
+                        val isOriginalSlot = slotInstant != null && slotInstant == originalReservedAt
                         val isPast = slotInstant != null && slotInstant.isBefore(Instant.now())
-                        val isAvailable = !isBooked && !isPast
+                        
+                        // Available if: (NOT booked OR is original) AND NOT past
+                        val isAvailable = (!isBooked || isOriginalSlot) && !isPast
                         
                         SlotItem(
                             slot = slot,
                             isSelected = slot == selectedSlot,
-                            isBooked = !isAvailable, // Disable if booked OR past
+                            isBooked = !isAvailable, // Disable if booked (unless original) OR past
                             onClick = { if (isAvailable) selectedSlot = slot }
                         )
                     }

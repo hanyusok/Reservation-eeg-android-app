@@ -52,12 +52,27 @@ class ReservationViewModel : ViewModel() {
     private val _selectedDate = MutableStateFlow(LocalDate.now(SupabaseConfig.KST_ZONE_ID))
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
+    private val _originalReservedAt = MutableStateFlow<Instant?>(null)
+    val originalReservedAt: StateFlow<Instant?> = _originalReservedAt.asStateFlow()
+
     private var editingReservationId: Int? = null
 
     init {
         fetchBookedSlots()
-        fetchFamilyMembers()
-        fetchUserProfile()
+        
+        // Reactively fetch profile and family members when auth status changes
+        viewModelScope.launch {
+            supabaseClient.auth.sessionStatus.collect { status ->
+                if (status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) {
+                    fetchUserProfile()
+                    fetchFamilyMembers()
+                } else {
+                    _userName.value = ""
+                    _familyMembers.value = emptyList()
+                    _patientName.value = ""
+                }
+            }
+        }
     }
 
     private fun fetchUserProfile() {
@@ -106,6 +121,7 @@ class ReservationViewModel : ViewModel() {
         try {
             val datePart = reservation.reservedAt.split("T")[0]
             _selectedDate.value = LocalDate.parse(datePart)
+            _originalReservedAt.value = OffsetDateTime.parse(reservation.reservedAt).toInstant()
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -120,6 +136,7 @@ class ReservationViewModel : ViewModel() {
         // but maybe we should reset it to the user's name.
         fetchUserProfile() 
         _selectedDate.value = LocalDate.now(SupabaseConfig.KST_ZONE_ID)
+        _originalReservedAt.value = null
         _isReservationSuccess.value = false
     }
 
