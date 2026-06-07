@@ -21,6 +21,7 @@ import com.example.reservation_eeg_android_app.ui.auth.FamilyMembersScreen
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.clinic.ClinicScreen
 import com.example.reservation_eeg_android_app.ui.clinic.DoctorDetailScreen
+import com.example.reservation_eeg_android_app.ui.community.CommunityScreen
 import com.example.reservation_eeg_android_app.model.mockDoctors
 import com.example.reservation_eeg_android_app.ui.util.PlaceholderScreen
 import androidx.navigation.NavType
@@ -121,7 +122,11 @@ fun NavGraph(
             PlaceholderScreen("알림")
         }
         composable(Screen.Community.route) {
-            PlaceholderScreen("커뮤니티")
+            val sessionStatus by authViewModel.sessionStatus.collectAsState()
+            CommunityScreen(
+                isAuthenticated = sessionStatus is io.github.jan.supabase.auth.status.SessionStatus.Authenticated,
+                onNavigateToLogin = { navController.navigate(Screen.Profile.route) }
+            )
         }
         composable(Screen.Profile.route) {
             ProfileScreen(

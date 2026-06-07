@@ -283,7 +283,12 @@ class ReservationViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
-                _error.value = "예약 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
+                val errorMessage = e.message ?: ""
+                if (errorMessage.contains("23505") || errorMessage.contains("duplicate", ignoreCase = true)) {
+                    _error.value = "이미 예약된 시간대입니다. 다른 시간을 선택해주세요."
+                } else {
+                    _error.value = "예약 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
+                }
             } finally {
                 _isLoading.value = false
             }

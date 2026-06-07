@@ -5,6 +5,7 @@ import io.github.jan.supabase.auth.MemorySessionManager
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.github.jan.supabase.storage.Storage
 import java.time.ZoneId
 
 object SupabaseConfig {
@@ -25,4 +26,5 @@ val supabaseClient = createSupabaseClient(
         host = "callback"
     }
     install(Realtime)
+    install(Storage)
 }

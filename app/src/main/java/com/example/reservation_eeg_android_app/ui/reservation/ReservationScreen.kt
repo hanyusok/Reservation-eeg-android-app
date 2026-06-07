@@ -17,6 +17,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.ui.Alignment
 import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
@@ -37,7 +38,6 @@ fun ReservationScreen(
     val userName by viewModel.userName.collectAsState()
     val familyMembers by viewModel.familyMembers.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
-    val scope = rememberCoroutineScope()
     
     val isAuthenticated = sessionStatus is SessionStatus.Authenticated
 
@@ -75,64 +75,60 @@ fun ReservationScreen(
             )
         }
     ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .padding(16.dp)
-        ) {
-            Text(
-                text = "누구를 위한 예약인가요?",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-
-            PatientSelectionList(
-                selectedName = patientName,
-                userName = userName,
-                familyMembers = familyMembers,
-                onPatientSelected = viewModel::selectPatient
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            Text(
-                text = "검사 유형을 선택해주세요",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-            
-            Box(modifier = Modifier.weight(1f)) {
-                EegTypeList(
-                    selectedType = selectedType,
-                    onTypeSelected = viewModel::selectType
+        if (isAuthenticated) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding)
+                    .padding(16.dp)
+            ) {
+                Text(
+                    text = "누구를 위한 예약인가요?",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-            }
 
-            if ((selectedType != null && patientName.isNotBlank())) {
-                Button(
-                    onClick = {
-                        if (isAuthenticated) {
-                            onNext()
-                        } else {
-                            scope.launch {
-                                val result = snackbarHostState.showSnackbar(
-                                    message = "로그인이 필요한 서비스입니다.",
-                                    actionLabel = "로그인"
-                                )
-                                if (result == SnackbarResult.ActionPerformed) {
-                                    onNavigateToLogin()
-                                }
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 16.dp),
-                    enabled = isAuthenticated
-                ) {
-                    Text(text = "다음 단계로")
+                PatientSelectionList(
+                    selectedName = patientName,
+                    userName = userName,
+                    familyMembers = familyMembers,
+                    onPatientSelected = viewModel::selectPatient
+                )
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                Text(
+                    text = "검사 유형을 선택해주세요",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+
+                Box(modifier = Modifier.weight(1f)) {
+                    EegTypeList(
+                        selectedType = selectedType,
+                        onTypeSelected = viewModel::selectType
+                    )
                 }
+
+                if ((selectedType != null && patientName.isNotBlank())) {
+                    Button(
+                        onClick = { onNext() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 16.dp)
+                    ) {
+                        Text(text = "다음 단계로")
+                    }
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(innerPadding),
+                contentAlignment = Alignment.Center
+            ) {
+                // content is empty as per requirement: only show snackbar
             }
         }
     }
