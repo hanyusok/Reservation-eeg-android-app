@@ -43,9 +43,9 @@ class MainActivity : ComponentActivity() {
                 
                 val items = listOf(
                     Screen.Clinic to "클리닉",
+                    Screen.Community to "커뮤니티",
                     Screen.MyReservations to "내 예약",
                     Screen.Notification to "알림",
-                    Screen.Community to "커뮤니티",
                     Screen.Profile to "프로필"
                 )
 

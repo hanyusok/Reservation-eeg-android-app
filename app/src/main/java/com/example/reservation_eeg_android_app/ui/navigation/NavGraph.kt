@@ -20,6 +20,10 @@ import com.example.reservation_eeg_android_app.ui.auth.ProfileScreen
 import com.example.reservation_eeg_android_app.ui.auth.FamilyMembersScreen
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.clinic.ClinicScreen
+import com.example.reservation_eeg_android_app.ui.clinic.DoctorDetailScreen
+import com.example.reservation_eeg_android_app.model.mockDoctors
+import androidx.navigation.NavType
+import androidx.navigation.navArgument
 
 sealed class Screen(val route: String) {
     object Clinic : Screen("clinic")
@@ -31,6 +35,9 @@ sealed class Screen(val route: String) {
     object Community : Screen("community")
     object Profile : Screen("profile")
     object FamilyMembers : Screen("family_members")
+    object DoctorDetail : Screen("doctor_detail/{doctorId}") {
+        fun createRoute(doctorId: String) = "doctor_detail/$doctorId"
+    }
 }
 
 @Composable
@@ -44,7 +51,26 @@ fun NavGraph(
         startDestination = Screen.Clinic.route
     ) {
         composable(Screen.Clinic.route) {
-            ClinicScreen()
+            ClinicScreen(
+                onNavigateToReservation = { navController.navigate(Screen.Reservation.route) },
+                onNavigateToDoctorDetail = { doctorId -> 
+                    navController.navigate(Screen.DoctorDetail.createRoute(doctorId)) 
+                }
+            )
+        }
+        composable(
+            route = Screen.DoctorDetail.route,
+            arguments = listOf(navArgument("doctorId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val doctorId = backStackEntry.arguments?.getString("doctorId") ?: ""
+            val doctor = mockDoctors.find { it.id == doctorId }
+            if (doctor != null) {
+                DoctorDetailScreen(
+                    doctor = doctor,
+                    onBack = { navController.popBackStack() },
+                    onBookClick = { navController.navigate(Screen.Reservation.route) }
+                )
+            }
         }
         composable(Screen.Reservation.route) {
             ReservationScreen(
