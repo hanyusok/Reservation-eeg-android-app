@@ -14,6 +14,9 @@ import io.github.jan.supabase.storage.storage
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -57,9 +60,9 @@ class CommunityViewModel : ViewModel() {
                         .select {
                             filter { eq("user_id", userId) }
                         }
-                        .decodeList<Map<String, Int>>() // Just need the post_ids
+                        .decodeList<JsonObject>()
                     
-                    val likedPostIds = userLikes.mapNotNull { it["post_id"] }.toSet()
+                    val likedPostIds = userLikes.mapNotNull { it["post_id"]?.jsonPrimitive?.intOrNull }.toSet()
                     results.forEach { it.isLiked = likedPostIds.contains(it.id) }
                 }
 
@@ -120,14 +123,33 @@ class CommunityViewModel : ViewModel() {
         _isPostSuccess.value = false
     }
 
+    private val processingPosts = mutableSetOf<Int>()
+
     fun toggleLike(postId: Int) {
+        if (processingPosts.contains(postId)) return
+        
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        
+        // Find current post state
+        val currentPosts = _posts.value.toMutableList()
+        val index = currentPosts.indexOfFirst { it.id == postId }
+        if (index == -1) return
+        
+        val post = currentPosts[index]
+        val wasLiked = post.isLiked
+        
+        // Optimistic UI update
+        val newIsLiked = !wasLiked
+        val newLikesCount = if (newIsLiked) post.likesCount + 1 else (post.likesCount - 1).coerceAtLeast(0)
+        currentPosts[index] = post.copy(isLiked = newIsLiked, likesCount = newLikesCount)
+        _posts.value = currentPosts
+        
+        processingPosts.add(postId)
+
         viewModelScope.launch {
             try {
-                val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return@launch
-                val currentPost = _posts.value.find { it.id == postId } ?: return@launch
-                
-                if (currentPost.isLiked) {
-                    // Unlike
+                if (wasLiked) {
+                    // Unlike: delete record
                     supabaseClient.postgrest["post_likes"].delete {
                         filter {
                             eq("post_id", postId)
@@ -135,21 +157,30 @@ class CommunityViewModel : ViewModel() {
                         }
                     }
                 } else {
-                    // Like
+                    // Like: insert record
                     val likeData = buildJsonObject {
                         put("post_id", postId)
                         put("user_id", userId)
                     }
-                    supabaseClient.postgrest["post_likes"].insert(likeData)
+                    try {
+                        supabaseClient.postgrest["post_likes"].insert(likeData)
+                    } catch (e: Exception) {
+                        // Ignore duplicate key error (23505) - it means it's already liked
+                        if (e.message?.contains("23505") != true) {
+                            throw e
+                        }
+                    }
                 }
                 
-                // Note: likes_count in community_posts should be updated via Trigger in DB for accuracy.
-                // If no trigger, we should manually update it here too.
-                
-                fetchPosts() // Refresh state
+                // Finally fetch to ensure we are in sync with server (triggers, etc)
+                fetchPosts()
             } catch (e: Exception) {
                 Log.e("CommunityDebug", "ToggleLike Error: ${e.localizedMessage}", e)
+                // In case of error, fetch posts to revert to server state
+                fetchPosts()
                 _error.value = "좋아요 처리에 실패했습니다."
+            } finally {
+                processingPosts.remove(postId)
             }
         }
     }
