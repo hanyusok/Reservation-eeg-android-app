@@ -23,9 +23,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import android.content.Intent
+import android.net.Uri
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ClinicScreen(
     onNavigateToReservation: () -> Unit = {},
@@ -40,30 +42,37 @@ fun ClinicScreen(
         )
     )
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { 
-                    Text(
-                        "EEG 클리닉", 
-                        fontWeight = FontWeight.ExtraBold,
-                        style = MaterialTheme.typography.headlineMedium
-                    ) 
-                },
-                actions = {
-                    IconButton(onClick = { /* TODO */ }) {
-                        Icon(Icons.Default.Info, contentDescription = "Info")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-            )
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(gradientHeader)
+    ) {
+        // Custom Top Bar (Since we removed Scaffold)
+        Surface(
+            color = MaterialTheme.colorScheme.primaryContainer,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "EEG 클리닉", 
+                    fontWeight = FontWeight.ExtraBold,
+                    style = MaterialTheme.typography.headlineMedium
+                ) 
+                IconButton(onClick = { /* TODO */ }) {
+                    Icon(Icons.Default.Info, contentDescription = "Info")
+                }
+            }
         }
-    ) { innerPadding ->
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .background(gradientHeader)
-                .padding(innerPadding)
                 .verticalScroll(scrollState)
         ) {
             // Hero Section
@@ -110,7 +119,7 @@ fun ClinicScreen(
 
             // Main Content Body
             Surface(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(topStart = 32.dp, topEnd = 32.dp),
                 color = MaterialTheme.colorScheme.surface,
                 tonalElevation = 2.dp
@@ -171,17 +180,42 @@ fun ClinicScreen(
 
                     // Location & Contact
                     ClinicSection(title = "병원 정보") {
+                        val context = LocalContext.current
                         Card(
                             modifier = Modifier.fillMaxWidth(),
                             shape = RoundedCornerShape(24.dp),
                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
                         ) {
                             Column(modifier = Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                                ContactInfoRow(Icons.Default.LocationOn, "서울특별시 강남구 테헤란로 123, 5층", "지도 보기")
+                                ContactInfoRow(
+                                    icon = Icons.Default.LocationOn, 
+                                    text = "서울특별시 강남구 테헤란로 123, 5층", 
+                                    actionText = "지도 보기",
+                                    onClick = {
+                                        val mapIntent = Intent(Intent.ACTION_VIEW, Uri.parse("geo:0,0?q=서울특별시 강남구 테헤란로 123"))
+                                        context.startActivity(mapIntent)
+                                    }
+                                )
                                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                                ContactInfoRow(Icons.Default.Phone, "02-123-4567", "전화 걸기")
+                                ContactInfoRow(
+                                    icon = Icons.Default.Phone, 
+                                    text = "02-123-4567", 
+                                    actionText = "전화 걸기",
+                                    onClick = {
+                                        val dialIntent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:021234567"))
+                                        context.startActivity(dialIntent)
+                                    }
+                                )
                                 HorizontalDivider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                                ContactInfoRow(Icons.Default.Email, "info@eegclinic.com", "이메일 문의")
+                                ContactInfoRow(
+                                    icon = Icons.Default.Email, 
+                                    text = "info@eegclinic.com", 
+                                    actionText = "이메일 문의",
+                                    onClick = {
+                                        val emailIntent = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:info@eegclinic.com"))
+                                        context.startActivity(emailIntent)
+                                    }
+                                )
                             }
                         }
                     }
@@ -251,6 +285,9 @@ fun ClinicScreen(
                     Spacer(modifier = Modifier.height(48.dp))
                 }
             }
+            
+            // Extra spacing to ensure content isn't hidden by the bottom navbar
+            Spacer(modifier = Modifier.height(100.dp))
         }
     }
 }
@@ -336,12 +373,18 @@ fun DoctorProfileCard(
 }
 
 @Composable
-fun ContactInfoRow(icon: ImageVector, text: String, actionText: String) {
+fun ContactInfoRow(
+    icon: ImageVector, 
+    text: String, 
+    actionText: String,
+    onClick: () -> Unit = {}
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { /* Interaction */ }
-            .padding(vertical = 4.dp),
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 4.dp, horizontal = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(

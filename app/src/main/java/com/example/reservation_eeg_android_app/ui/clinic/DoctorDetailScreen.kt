@@ -24,7 +24,6 @@ import com.example.reservation_eeg_android_app.model.Doctor
 import com.example.reservation_eeg_android_app.model.mockDoctors
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DoctorDetailScreen(
     doctor: Doctor,
@@ -33,24 +32,32 @@ fun DoctorDetailScreen(
 ) {
     val scrollState = rememberScrollState()
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("의료진 상세 정보", fontWeight = FontWeight.Bold) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        },
-        containerColor = MaterialTheme.colorScheme.surface
-    ) { innerPadding ->
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.surface)
+    ) {
+        // Custom Top Bar (Since we removed Scaffold)
+        Surface(
+            color = Color.Transparent, // We'll let the gradient handle it
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                }
+                Text("의료진 상세 정보", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+            }
+        }
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding)
                 .verticalScroll(scrollState)
         ) {
             // Header with Profile Image
@@ -157,7 +164,8 @@ fun DoctorDetailScreen(
                     )
                 }
                 
-                Spacer(modifier = Modifier.height(48.dp))
+                // Extra spacing to ensure content isn't hidden by the bottom navbar
+                Spacer(modifier = Modifier.height(100.dp))
             }
         }
     }

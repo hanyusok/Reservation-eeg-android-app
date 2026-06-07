@@ -102,43 +102,30 @@ fun CommunityContent(
         }
     }
 
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            TopAppBar(
-                title = { Text("EEG 케어 서클", fontWeight = FontWeight.Bold) },
-                actions = {
+    Box(modifier = Modifier.fillMaxSize()) {
+        Column(
+            modifier = Modifier.fillMaxSize()
+        ) {
+            // Top Bar
+            Surface(
+                color = MaterialTheme.colorScheme.surface,
+                tonalElevation = 2.dp,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text("EEG 케어 서클", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
                     IconButton(onClick = onFetchPosts) {
                         Icon(Icons.Default.Refresh, contentDescription = "새로고침")
                     }
                 }
-            )
-        },
-        floatingActionButton = {
-            FloatingActionButton(onClick = { 
-                if (isAuthenticated) {
-                    showCreateDialog = true 
-                } else {
-                    scope.launch {
-                        val result = snackbarHostState.showSnackbar(
-                            message = "로그인이 필요한 서비스입니다.",
-                            actionLabel = "로그인"
-                        )
-                        if (result == SnackbarResult.ActionPerformed) {
-                            onNavigateToLogin()
-                        }
-                    }
-                }
-            }) {
-                Icon(Icons.Default.Add, contentDescription = "글쓰기")
             }
-        }
-    ) { innerPadding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-        ) {
+
             // Categories
             CategoryRow(
                 selectedCategory = selectedCategory,
@@ -158,7 +145,7 @@ fun CommunityContent(
 
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(16.dp),
+                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
                     items(filteredPosts) { post ->
@@ -172,6 +159,35 @@ fun CommunityContent(
                 }
             }
         }
+
+        // FAB
+        FloatingActionButton(
+            onClick = { 
+                if (isAuthenticated) {
+                    showCreateDialog = true 
+                } else {
+                    scope.launch {
+                        val result = snackbarHostState.showSnackbar(
+                            message = "로그인이 필요한 서비스입니다.",
+                            actionLabel = "로그인"
+                        )
+                        if (result == SnackbarResult.ActionPerformed) {
+                            onNavigateToLogin()
+                        }
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp)
+        ) {
+            Icon(Icons.Default.Add, contentDescription = "글쓰기")
+        }
+
+        SnackbarHost(
+            hostState = snackbarHostState,
+            modifier = Modifier.align(Alignment.BottomCenter)
+        )
 
         if (showCreateDialog) {
             CreatePostDialog(
