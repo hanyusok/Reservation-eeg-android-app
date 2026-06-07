@@ -13,7 +13,5 @@ data class UserProfile(
     val address: String = "",
     @SerialName("phone_number")
     val phoneNumber: String = "",
-    @SerialName("family_members")
-    val familyMembers: String = "",
     val email: String = ""
 )

@@ -27,6 +27,7 @@ fun FamilyMembersScreen(
     val familyMembers by viewModel.familyMembers.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
     
     var showAddDialog by remember { mutableStateOf(false) }
     var memberToEdit by remember { mutableStateOf<FamilyMember?>(null) }
@@ -35,7 +36,15 @@ fun FamilyMembersScreen(
         viewModel.fetchFamilyMembers()
     }
 
+    LaunchedEffect(error) {
+        error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
                 title = { Text("가족 구성원 관리") },
@@ -74,14 +83,6 @@ fun FamilyMembersScreen(
 
             if (isLoading) {
                 CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            }
-            
-            if (error != null) {
-                Text(
-                    text = error!!,
-                    color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp)
-                )
             }
         }
     }

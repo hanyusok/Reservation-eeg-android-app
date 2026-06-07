@@ -5,7 +5,9 @@ import androidx.lifecycle.viewModelScope
 import com.example.reservation_eeg_android_app.data.SupabaseConfig
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.EegType
+import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.Reservation
+import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import java.time.LocalDate
@@ -19,6 +21,15 @@ import kotlinx.coroutines.launch
 class ReservationViewModel : ViewModel() {
     private val _selectedType = MutableStateFlow<EegType?>(null)
     val selectedType: StateFlow<EegType?> = _selectedType.asStateFlow()
+
+    private val _patientName = MutableStateFlow("")
+    val patientName: StateFlow<String> = _patientName.asStateFlow()
+
+    private val _userName = MutableStateFlow("")
+    val userName: StateFlow<String> = _userName.asStateFlow()
+
+    private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
+    val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
 
     private val _symptoms = MutableStateFlow("")
     val symptoms: StateFlow<String> = _symptoms.asStateFlow()
@@ -48,11 +59,51 @@ class ReservationViewModel : ViewModel() {
 
     init {
         fetchBookedSlots()
+        fetchFamilyMembers()
+        fetchUserProfile()
+    }
+
+    private fun fetchUserProfile() {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                val profile = supabaseClient.postgrest["profiles"]
+                    .select { filter { eq("id", userId) } }
+                    .decodeSingleOrNull<UserProfile>()
+                if (profile != null) {
+                    _userName.value = profile.name
+                    if (_patientName.value.isEmpty()) {
+                        _patientName.value = profile.name
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun fetchFamilyMembers() {
+        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        viewModelScope.launch {
+            try {
+                val members = supabaseClient.postgrest["family_members"]
+                    .select { filter { eq("user_id", userId) } }
+                    .decodeList<FamilyMember>()
+                _familyMembers.value = members
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun selectPatient(name: String) {
+        _patientName.value = name
     }
 
     fun startEditing(reservation: Reservation) {
         editingReservationId = reservation.id
         _selectedType.value = reservation.eegType
+        _patientName.value = reservation.patientName
         _symptoms.value = reservation.symptoms
         // Extract date from ISO string: "2026-06-10T..."
         try {
@@ -69,6 +120,9 @@ class ReservationViewModel : ViewModel() {
         editingReservationId = null
         _selectedType.value = null
         _symptoms.value = ""
+        // We don't necessarily clear patientName here if we want it to default to user, 
+        // but maybe we should reset it to the user's name.
+        fetchUserProfile() 
         _selectedDate.value = LocalDate.now(SupabaseConfig.KST_ZONE_ID)
         _isReservationSuccess.value = false
         _isEditing.value = false
@@ -126,6 +180,7 @@ class ReservationViewModel : ViewModel() {
 
     suspend fun updateReservation(id: Int, newSlot: String) {
         val type = _selectedType.value ?: return
+        val patient = _patientName.value
         val symptomText = _symptoms.value
         val date = _selectedDate.value
         _isLoading.value = true
@@ -134,6 +189,7 @@ class ReservationViewModel : ViewModel() {
             supabaseClient.postgrest["bookings"].update({
                 Reservation::reservedAt setTo updatedReservedAt
                 Reservation::eegType setTo type
+                Reservation::patientName setTo patient
                 Reservation::symptoms setTo symptomText
             }) {
                 filter {
@@ -166,6 +222,7 @@ class ReservationViewModel : ViewModel() {
 
     fun completeReservation(slot: String) {
         val type = _selectedType.value ?: return
+        val patient = _patientName.value
         val symptomText = _symptoms.value
         val date = _selectedDate.value
         val reservedAt = "${date}T$slot:00${SupabaseConfig.KST_OFFSET}"
@@ -189,11 +246,10 @@ class ReservationViewModel : ViewModel() {
                     }
 
                     val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
-                    val currentUserEmail = supabaseClient.auth.currentSessionOrNull()?.user?.email
-
+                    
                     val reservation = Reservation(
                         userId = currentUserId,
-                        patientName = currentUserEmail ?: TEST_PATIENT,
+                        patientName = patient.ifBlank { supabaseClient.auth.currentSessionOrNull()?.user?.email ?: TEST_PATIENT },
                         eegType = type,
                         symptoms = symptomText,
                         reservedAt = reservedAt

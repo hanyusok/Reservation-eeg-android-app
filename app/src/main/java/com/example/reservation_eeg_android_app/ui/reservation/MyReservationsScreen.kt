@@ -159,7 +159,7 @@ fun ReservationItem(
                     }
 
                     Text(
-                        text = reservation.eegType.displayName,
+                        text = "${reservation.eegType.displayName} (${reservation.patientName})",
                         style = MaterialTheme.typography.titleMedium
                     )
                     Text(

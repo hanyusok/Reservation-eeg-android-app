@@ -11,6 +11,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.Logout
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -57,7 +59,8 @@ fun ProfileScreen(
         onSignUp = { email, password -> viewModel.signUp(email, password) },
         onSignInWithGoogle = { viewModel.signInWithGoogle() },
         onSignInWithKakao = { viewModel.signInWithKakao() },
-        onNavigateToFamilyMembers = onNavigateToFamilyMembers
+        onNavigateToFamilyMembers = onNavigateToFamilyMembers,
+        onClearError = { viewModel.clearError() }
     )
 }
 
@@ -75,7 +78,8 @@ fun ProfileContent(
     onSignUp: (String, String) -> Unit,
     onSignInWithGoogle: () -> Unit,
     onSignInWithKakao: () -> Unit,
-    onNavigateToFamilyMembers: () -> Unit
+    onNavigateToFamilyMembers: () -> Unit,
+    onClearError: () -> Unit
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var isEditing by remember { mutableStateOf(false) }
@@ -84,6 +88,19 @@ fun ProfileContent(
         if (updateSuccess) {
             snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
             isEditing = false
+        }
+    }
+
+    LaunchedEffect(error) {
+        error?.let {
+            val displayError = when {
+                it.contains("invalid_credentials", ignoreCase = true) -> "이메일 또는 비밀번호가 올바르지 않습니다."
+                it.contains("user_already_exists", ignoreCase = true) -> "이미 가입된 이메일입니다."
+                it.contains("network", ignoreCase = true) -> "네트워크 연결을 확인해주세요."
+                else -> it.split("\n").firstOrNull() ?: it // Show only first line of long errors
+            }
+            snackbarHostState.showSnackbar(displayError)
+            onClearError()
         }
     }
 
@@ -131,7 +148,6 @@ fun ProfileContent(
                             ProfileDetailForm(
                                 profile = currentProfile,
                                 isLoading = isLoading,
-                                error = error,
                                 onUpdate = onUpdateProfile,
                                 onCancel = { isEditing = false }
                             )
@@ -146,10 +162,14 @@ fun ProfileContent(
                     }
                 }
                 else -> {
-                    Box(modifier = Modifier.padding(16.dp)) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
                         AuthForm(
                             isLoading = isLoading,
-                            error = error,
                             onSignIn = onSignIn,
                             onSignUp = onSignUp,
                             onSignInWithGoogle = onSignInWithGoogle,
@@ -176,13 +196,12 @@ fun ProfileOverview(
             .padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // ... (rest of ProfileOverview)
-        // Profile Card matching reference image
+        // Profile Card with modern look
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 8.dp),
-            shape = RoundedCornerShape(24.dp),
+                .padding(vertical = 12.dp),
+            shape = RoundedCornerShape(32.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
@@ -192,12 +211,19 @@ fun ProfileOverview(
                     .fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Avatar Placeholder
+                // Avatar with gradient background
                 Box(
                     modifier = Modifier
                         .size(100.dp)
                         .clip(CircleShape)
-                        .background(MaterialTheme.colorScheme.primaryContainer),
+                        .background(
+                            Brush.linearGradient(
+                                colors = listOf(
+                                    MaterialTheme.colorScheme.primaryContainer,
+                                    MaterialTheme.colorScheme.secondaryContainer
+                                )
+                            )
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -213,30 +239,46 @@ fun ProfileOverview(
                 Text(
                     text = profile.name.ifBlank { "이름을 설정해주세요" },
                     style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 
                 Text(
                     text = profile.email,
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.outline
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 
                 if (profile.address.isNotBlank()) {
-                    Text(
-                        text = profile.address,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
+                    Row(
+                        modifier = Modifier.padding(top = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.LocationOn, 
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = profile.address,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
                 Button(
                     onClick = onEditClick,
-                    shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF4511E)), // Accent orange from image
-                    contentPadding = PaddingValues(horizontal = 32.dp, vertical = 12.dp)
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    ),
+                    contentPadding = PaddingValues(vertical = 12.dp)
                 ) {
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
@@ -245,12 +287,13 @@ fun ProfileOverview(
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(8.dp))
 
-        // Menu Groups
+        // Account Section
+        SectionHeader(title = "Account")
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
@@ -269,9 +312,11 @@ fun ProfileOverview(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Security Section
+        SectionHeader(title = "Security")
         Card(
             modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(24.dp),
             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
             elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
         ) {
@@ -286,49 +331,81 @@ fun ProfileOverview(
         
         Spacer(modifier = Modifier.height(24.dp))
         
-        TextButton(onClick = onSignOut) {
-            Text("로그아웃", color = MaterialTheme.colorScheme.error)
+        TextButton(
+            onClick = onSignOut,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("로그아웃", fontWeight = FontWeight.Bold)
+            }
         }
         
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
-fun ProfileMenuItem(icon: ImageVector, label: String, onClick: () -> Unit = {}) {
-    Row(
+fun SectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.Bold,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { onClick() }
-            .padding(16.dp),
-        verticalAlignment = Alignment.CenterVertically
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+    )
+}
+
+@Composable
+fun ProfileMenuItem(
+    icon: ImageVector, 
+    label: String, 
+    onClick: () -> Unit = {},
+    iconColor: Color = MaterialTheme.colorScheme.primary
+) {
+    Surface(
+        onClick = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        color = Color.Transparent
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(36.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-            contentAlignment = Alignment.Center
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(iconColor.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon, 
+                    contentDescription = null, 
+                    modifier = Modifier.size(20.dp),
+                    tint = iconColor
+                )
+            }
+            Spacer(modifier = Modifier.width(16.dp))
+            Text(
+                text = label, 
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Medium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             Icon(
-                imageVector = icon, 
-                contentDescription = null, 
-                modifier = Modifier.size(20.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, 
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                modifier = Modifier.size(20.dp)
             )
         }
-        Spacer(modifier = Modifier.width(16.dp))
-        Text(
-            text = label, 
-            modifier = Modifier.weight(1f),
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.Medium
-        )
-        Icon(
-            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight, 
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.outline
-        )
     }
 }
 
@@ -336,7 +413,6 @@ fun ProfileMenuItem(icon: ImageVector, label: String, onClick: () -> Unit = {}) 
 fun ProfileDetailForm(
     profile: UserProfile,
     isLoading: Boolean,
-    error: String?,
     onUpdate: (UserProfile) -> Unit,
     onCancel: () -> Unit
 ) {
@@ -345,30 +421,55 @@ fun ProfileDetailForm(
     var residentId by remember(profile) { mutableStateOf(profile.residentId) }
     var address by remember(profile) { mutableStateOf(profile.address) }
     var phoneNumber by remember(profile) { mutableStateOf(profile.phoneNumber) }
-    var familyMembers by remember(profile) { mutableStateOf(profile.familyMembers) }
     var email by remember(profile) { mutableStateOf(profile.email) }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .verticalScroll(rememberScrollState()),
+            .verticalScroll(rememberScrollState())
+            .padding(vertical = 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(20.dp)
     ) {
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("이름") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = name, 
+            onValueChange = { name = it }, 
+            label = { Text("이름") }, 
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) }
+        )
         
         Column(modifier = Modifier.fillMaxWidth()) {
-            Text("성별", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+            Text(
+                "성별", 
+                style = MaterialTheme.typography.labelLarge, 
+                color = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Bold,
+                modifier = Modifier.padding(bottom = 8.dp, start = 4.dp)
+            )
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 listOf("남성", "여성").forEach { option ->
+                    val isSelected = sex == option
                     FilterChip(
-                        selected = sex == option,
+                        selected = isSelected,
                         onClick = { sex = option },
-                        label = { Text(option) },
-                        modifier = Modifier.weight(1f)
+                        label = { 
+                            Text(
+                                option, 
+                                modifier = Modifier.fillMaxWidth(), 
+                                textAlign = TextAlign.Center
+                            ) 
+                        },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     )
                 }
             }
@@ -379,35 +480,48 @@ fun ProfileDetailForm(
             onValueChange = { residentId = it.filter { char -> char.isDigit() }.take(13) },
             label = { Text("주민등록번호") },
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             placeholder = { Text("123456-1234567") },
-            visualTransformation = ResidentIdTransformation()
+            visualTransformation = ResidentIdTransformation(),
+            leadingIcon = { Icon(Icons.Default.Badge, contentDescription = null) }
         )
-        OutlinedTextField(value = address, onValueChange = { address = it }, label = { Text("주소") }, modifier = Modifier.fillMaxWidth())
+        
+        OutlinedTextField(
+            value = address, 
+            onValueChange = { address = it }, 
+            label = { Text("주소") }, 
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            leadingIcon = { Icon(Icons.Default.Home, contentDescription = null) }
+        )
+        
         OutlinedTextField(
             value = phoneNumber,
             onValueChange = { phoneNumber = it.filter { char -> char.isDigit() }.take(11) },
             label = { Text("전화번호") },
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
             placeholder = { Text("010-0000-0000") },
-            visualTransformation = PhoneNumberTransformation()
+            visualTransformation = PhoneNumberTransformation(),
+            leadingIcon = { Icon(Icons.Default.Phone, contentDescription = null) }
         )
-        OutlinedTextField(value = familyMembers, onValueChange = { familyMembers = it }, label = { Text("가족 구성원") }, modifier = Modifier.fillMaxWidth())
+        
         OutlinedTextField(
             value = email,
             onValueChange = { email = it },
             label = { Text("이메일") },
             modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
             enabled = profile.email.isBlank(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) }
         )
 
-        if (error != null) {
-            Text(text = error, color = MaterialTheme.colorScheme.error)
-        }
-
         val isFormValid = name.isNotBlank() && phoneNumber.isNotBlank() && residentId.isNotBlank()
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         Button(
             onClick = {
@@ -417,27 +531,40 @@ fun ProfileDetailForm(
                     residentId = residentId,
                     address = address,
                     phoneNumber = phoneNumber,
-                    familyMembers = familyMembers,
                     email = email
                 ))
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && isFormValid
+            enabled = !isLoading && isFormValid,
+            shape = RoundedCornerShape(16.dp),
+            contentPadding = PaddingValues(vertical = 14.dp)
         ) {
-            if (isLoading) CircularProgressIndicator(modifier = Modifier.size(24.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-            else Text("저장하기")
+            if (isLoading) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(24.dp), 
+                    color = MaterialTheme.colorScheme.onPrimary, 
+                    strokeWidth = 2.dp
+                )
+            } else {
+                Text("저장하기", fontWeight = FontWeight.Bold)
+            }
         }
 
-        OutlinedButton(onClick = onCancel, modifier = Modifier.fillMaxWidth()) {
+        TextButton(
+            onClick = onCancel, 
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.outline)
+        ) {
             Text("취소")
         }
+        
+        Spacer(modifier = Modifier.height(24.dp))
     }
 }
 
 @Composable
 fun AuthForm(
     isLoading: Boolean,
-    error: String?,
     onSignIn: (String, String) -> Unit,
     onSignUp: (String, String) -> Unit,
     onSignInWithGoogle: () -> Unit,
@@ -445,93 +572,152 @@ fun AuthForm(
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
     var isSignUp by remember { mutableStateOf(false) }
 
-    Column(
+    Card(
         modifier = Modifier.fillMaxWidth(),
-        horizontalAlignment = Alignment.CenterHorizontally
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
-        Text(
-            if (isSignUp) "회원가입" else "로그인",
-            style = MaterialTheme.typography.headlineSmall
-        )
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        OutlinedTextField(
-            value = email,
-            onValueChange = { email = it },
-            label = { Text("이메일") },
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text("비밀번호") },
-            visualTransformation = PasswordVisualTransformation(),
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-        )
-        
-        if (error != null) {
-            Text(
-                text = error,
-                color = MaterialTheme.colorScheme.error,
-                modifier = Modifier.padding(top = 8.dp)
-            )
-        }
-        
-        Spacer(modifier = Modifier.height(24.dp))
-        
-        Button(
-            onClick = {
-                if (isSignUp) onSignUp(email, password)
-                else onSignIn(email, password)
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading && email.isNotBlank() && password.isNotBlank()
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            if (isLoading) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(24.dp),
-                    color = MaterialTheme.colorScheme.onPrimary,
-                    strokeWidth = 2.dp
-                )
-            } else {
-                Text(if (isSignUp) "가입하기" else "로그인")
+            // Even smaller Logo/Icon
+            Surface(
+                modifier = Modifier.size(44.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.primaryContainer
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(22.dp),
+                        tint = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
-        }
-        
-        TextButton(onClick = { isSignUp = !isSignUp }) {
-            Text(if (isSignUp) "이미 계정이 있으신가요? 로그인" else "계정이 없으신가요? 회원가입")
-        }
 
-        Spacer(modifier = Modifier.height(16.dp))
-        HorizontalDivider()
-        Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-        OutlinedButton(
-            onClick = onSignInWithGoogle,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading
-        ) {
-            Text("Google로 로그인")
-        }
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Button(
-            onClick = onSignInWithKakao,
-            modifier = Modifier.fillMaxWidth(),
-            enabled = !isLoading,
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFFEE500),
-                contentColor = Color(0xFF191919)
+            Text(
+                if (isSignUp) "계정 생성" else "로그인",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface
             )
-        ) {
-            Text("카카오로 로그인")
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            OutlinedTextField(
+                value = email,
+                onValueChange = { email = it },
+                label = { Text("이메일") },
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, modifier = Modifier.size(20.dp)) }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("비밀번호") },
+                visualTransformation = if (passwordVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, modifier = Modifier.size(20.dp)) },
+                trailingIcon = {
+                    val image = if (passwordVisible) Icons.Default.Visibility else Icons.Default.VisibilityOff
+                    val description = if (passwordVisible) "Hide password" else "Show password"
+                    
+                    IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                        Icon(imageVector = image, contentDescription = description, modifier = Modifier.size(20.dp))
+                    }
+                }
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = {
+                    if (isSignUp) onSignUp(email, password)
+                    else onSignIn(email, password)
+                },
+                modifier = Modifier.fillMaxWidth().height(44.dp),
+                enabled = !isLoading && email.isNotBlank() && password.isNotBlank(),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                if (isLoading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        strokeWidth = 2.dp
+                    )
+                } else {
+                    Text(if (isSignUp) "가입하기" else "로그인", fontWeight = FontWeight.Bold)
+                }
+            }
+            
+            TextButton(
+                onClick = { isSignUp = !isSignUp },
+                modifier = Modifier.height(36.dp)
+            ) {
+                Text(
+                    if (isSignUp) "이미 계정이 있으신가요? 로그인" else "계정이 없으신가요? 회원가입",
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp)
+                Text(
+                    "OR", 
+                    modifier = Modifier.padding(horizontal = 8.dp),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                HorizontalDivider(modifier = Modifier.weight(1f), thickness = 0.5.dp)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(
+                    onClick = onSignInWithGoogle,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    enabled = !isLoading,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("Google", style = MaterialTheme.typography.bodySmall)
+                }
+
+                Button(
+                    onClick = onSignInWithKakao,
+                    modifier = Modifier.weight(1f).height(44.dp),
+                    enabled = !isLoading,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFFEE500),
+                        contentColor = Color(0xFF191919)
+                    ),
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(0.dp)
+                ) {
+                    Text("카카오", style = MaterialTheme.typography.bodySmall)
+                }
+            }
         }
     }
 }
@@ -619,7 +805,8 @@ fun ProfileScreenAuthenticatedPreview() {
             onSignUp = { _, _ -> },
             onSignInWithGoogle = {},
             onSignInWithKakao = {},
-            onNavigateToFamilyMembers = {}
+            onNavigateToFamilyMembers = {},
+            onClearError = {}
         )
     }
 }
@@ -640,7 +827,8 @@ fun ProfileScreenUnauthenticatedPreview() {
             onSignUp = { _, _ -> },
             onSignInWithGoogle = {},
             onSignInWithKakao = {},
-            onNavigateToFamilyMembers = {}
+            onNavigateToFamilyMembers = {},
+            onClearError = {}
         )
     }
 }

@@ -19,6 +19,10 @@ fun SymptomScreen(
     onNext: () -> Unit
 ) {
     val symptoms by viewModel.symptoms.collectAsState()
+    val patientName by viewModel.patientName.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+
+    val displayName = if (patientName == userName) "본인" else patientName
     
     Scaffold(
         topBar = {
@@ -39,6 +43,13 @@ fun SymptomScreen(
                 .padding(16.dp)
                 .verticalScroll(rememberScrollState())
         ) {
+            Text(
+                text = "${displayName} 님이 겪고 계신 증상을 입력해주세요.",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+
             Text(
                 text = "현재 겪고 계신 증상을 자유롭게 입력해주세요.",
                 style = MaterialTheme.typography.bodyLarge,

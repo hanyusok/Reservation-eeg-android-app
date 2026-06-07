@@ -160,6 +160,10 @@ class AuthViewModel : ViewModel() {
         }
     }
 
+    fun clearError() {
+        _error.value = null
+    }
+
     fun fetchFamilyMembers() {
         val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {

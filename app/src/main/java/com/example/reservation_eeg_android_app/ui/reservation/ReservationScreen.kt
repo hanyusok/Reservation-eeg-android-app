@@ -16,7 +16,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.compose.foundation.lazy.LazyRow
 import com.example.reservation_eeg_android_app.model.EegType
+import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -27,6 +29,9 @@ fun ReservationScreen(
     onBack: (() -> Unit)? = null
 ) {
     val selectedType by viewModel.selectedType.collectAsState()
+    val patientName by viewModel.patientName.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+    val familyMembers by viewModel.familyMembers.collectAsState()
 
     Scaffold(
         topBar = {
@@ -49,6 +54,21 @@ fun ReservationScreen(
                 .padding(16.dp)
         ) {
             Text(
+                text = "누구를 위한 예약인가요?",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+
+            PatientSelectionList(
+                selectedName = patientName,
+                userName = userName,
+                familyMembers = familyMembers,
+                onPatientSelected = { viewModel.selectPatient(it) }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            Text(
                 text = "검사 유형을 선택해주세요",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -61,7 +81,7 @@ fun ReservationScreen(
                 )
             }
 
-            if (selectedType != null) {
+            if (selectedType != null && patientName.isNotBlank()) {
                 Button(
                     onClick = onNext,
                     modifier = Modifier
@@ -71,6 +91,36 @@ fun ReservationScreen(
                     Text(text = "다음 단계로")
                 }
             }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PatientSelectionList(
+    selectedName: String,
+    userName: String,
+    familyMembers: List<FamilyMember>,
+    onPatientSelected: (String) -> Unit
+) {
+    LazyRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        item {
+            FilterChip(
+                selected = selectedName == userName,
+                onClick = { onPatientSelected(userName) },
+                label = { Text("본인") }
+            )
+        }
+        
+        items(familyMembers) { member ->
+            FilterChip(
+                selected = selectedName == member.name,
+                onClick = { onPatientSelected(member.name) },
+                label = { Text(member.name) }
+            )
         }
     }
 }

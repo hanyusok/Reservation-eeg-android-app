@@ -27,6 +27,10 @@ fun SlotSelectionScreen(
     onComplete: () -> Unit
 ) {
     val selectedDate by viewModel.selectedDate.collectAsState()
+    val patientName by viewModel.patientName.collectAsState()
+    val userName by viewModel.userName.collectAsState()
+    
+    val displayName = if (patientName == userName) "본인" else patientName
     val mockSlots = listOf("09:00", "10:30", "13:00", "14:30", "16:00")
     var selectedSlot by remember { mutableStateOf<String?>(null) }
     
@@ -81,6 +85,13 @@ fun SlotSelectionScreen(
                     .fillMaxSize()
                     .padding(16.dp)
             ) {
+                Text(
+                    text = "${displayName} 님의 예약 시간 선택",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+
                 OutlinedCard(
                     modifier = Modifier
                         .fillMaxWidth()
