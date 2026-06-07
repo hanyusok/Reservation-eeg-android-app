@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.foundation.lazy.LazyRow
@@ -26,7 +25,7 @@ import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.Reservat
 fun ReservationScreen(
     viewModel: ReservationViewModel = viewModel(),
     onNext: () -> Unit,
-    onBack: (() -> Unit)? = null
+    onBack: (() -> Unit)? = null,
 ) {
     val selectedType by viewModel.selectedType.collectAsState()
     val patientName by viewModel.patientName.collectAsState()
@@ -38,9 +37,9 @@ fun ReservationScreen(
             TopAppBar(
                 title = { Text("EEG 예약 요청") },
                 navigationIcon = {
-                    if (onBack != null) {
-                        IconButton(onClick = onBack) {
-                            Icon(imageVector = Icons.Default.ArrowBack, contentDescription = "Back")
+                    onBack?.let {
+                        IconButton(onClick = it) {
+                            Icon(imageVector = Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                         }
                     }
                 }
@@ -63,7 +62,7 @@ fun ReservationScreen(
                 selectedName = patientName,
                 userName = userName,
                 familyMembers = familyMembers,
-                onPatientSelected = { viewModel.selectPatient(it) }
+                onPatientSelected = viewModel::selectPatient
             )
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -81,7 +80,7 @@ fun ReservationScreen(
                 )
             }
 
-            if (selectedType != null && patientName.isNotBlank()) {
+            if ((selectedType != null && patientName.isNotBlank())) {
                 Button(
                     onClick = onNext,
                     modifier = Modifier
@@ -108,8 +107,9 @@ fun PatientSelectionList(
         modifier = Modifier.fillMaxWidth()
     ) {
         item {
+            val isMeSelected = selectedName == userName || (selectedName.isEmpty() && userName.isEmpty())
             FilterChip(
-                selected = selectedName == userName,
+                selected = isMeSelected,
                 onClick = { onPatientSelected(userName) },
                 label = { Text("본인") }
             )

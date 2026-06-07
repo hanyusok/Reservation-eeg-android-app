@@ -49,9 +49,6 @@ class ReservationViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _isEditing = MutableStateFlow(false)
-    val isEditing: StateFlow<Boolean> = _isEditing.asStateFlow()
-
     private val _selectedDate = MutableStateFlow(LocalDate.now(SupabaseConfig.KST_ZONE_ID))
     val selectedDate: StateFlow<LocalDate> = _selectedDate.asStateFlow()
 
@@ -113,7 +110,6 @@ class ReservationViewModel : ViewModel() {
             e.printStackTrace()
         }
         _isReservationSuccess.value = false
-        _isEditing.value = true
     }
 
     fun clearEditing() {
@@ -125,30 +121,39 @@ class ReservationViewModel : ViewModel() {
         fetchUserProfile() 
         _selectedDate.value = LocalDate.now(SupabaseConfig.KST_ZONE_ID)
         _isReservationSuccess.value = false
-        _isEditing.value = false
     }
 
     fun fetchBookedSlots() {
+        val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
+        
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             try {
-                val results = supabaseClient.postgrest["bookings"]
+                // Fetch ALL bookings for slot checking (time slots are public info for availability)
+                val allBookings = supabaseClient.postgrest["bookings"]
                     .select()
                     .decodeList<Reservation>()
-                println("Fetched ${results.size} bookings from Supabase")
-                _bookedSlots.value = results.mapNotNull { 
-                    try { OffsetDateTime.parse(it.reservedAt).toInstant() } catch (e: Exception) { null } 
+                
+                _bookedSlots.value = allBookings.mapNotNull { 
+                    try { OffsetDateTime.parse(it.reservedAt).toInstant() } catch (_: Exception) { null } 
                 }
                 
-                val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
-                _userReservations.value = if (currentUserId != null) {
-                    results.filter { it.userId == currentUserId }
+                // Fetch only USER'S reservations using server-side filtering
+                if (currentUserId != null) {
+                    val userResults = supabaseClient.postgrest["bookings"]
+                        .select {
+                            filter {
+                                eq("user_id", currentUserId)
+                            }
+                        }
+                        .decodeList<Reservation>()
+                    _userReservations.value = userResults.sortedByDescending { it.reservedAt }
                 } else {
-                    results.filter { it.patientName == TEST_PATIENT }
-                }.sortedByDescending { it.reservedAt }
+                    _userReservations.value = emptyList()
+                }
                 
-                println("Filtered and sorted to ${_userReservations.value.size} reservations for user")
+                println("Fetched and filtered reservations successfully")
             } catch (e: Exception) {
                 e.printStackTrace()
                 _error.value = "목록을 불러오는데 실패했습니다: ${e.message}"
@@ -234,7 +239,6 @@ class ReservationViewModel : ViewModel() {
                 if (editingReservationId != null) {
                     updateReservation(editingReservationId!!, slot)
                     _isReservationSuccess.value = true
-                    _isEditing.value = false
                     editingReservationId = null
                 } else {
                     val reservedInstant = OffsetDateTime.parse(reservedAt).toInstant()
@@ -245,11 +249,12 @@ class ReservationViewModel : ViewModel() {
                         return@launch
                     }
 
-                    val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id
-                    
+                    val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id ?: return@launch
+                    val finalPatientName = patient.ifBlank { supabaseClient.auth.currentSessionOrNull()?.user?.email ?: "" }
+
                     val reservation = Reservation(
                         userId = currentUserId,
-                        patientName = patient.ifBlank { supabaseClient.auth.currentSessionOrNull()?.user?.email ?: TEST_PATIENT },
+                        patientName = finalPatientName,
                         eegType = type,
                         symptoms = symptomText,
                         reservedAt = reservedAt
@@ -268,7 +273,4 @@ class ReservationViewModel : ViewModel() {
         }
     }
 
-    companion object {
-        const val TEST_PATIENT = "Test Patient"
-    }
 }

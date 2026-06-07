@@ -68,20 +68,24 @@ class AuthViewModel : ViewModel() {
 
     fun updateProfile(profile: UserProfile) {
         viewModelScope.launch {
+            // Optimistic update: UI will close and show new data immediately
+            val previousProfile = _userProfile.value
+            _userProfile.value = profile
+            _updateSuccess.value = true
+            
             _isLoading.value = true
             _error.value = null
-            _updateSuccess.value = false
             try {
-                // If this is a new profile and the user entered an email for the first time
-                // We should ensure the profile has the current user ID
-                val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: profile.id
+                val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: profile.id ?: ""
                 val profileToUpdate = profile.copy(id = currentUserId)
                 
                 supabaseClient.postgrest["profiles"].upsert(profileToUpdate)
-                _userProfile.value = profileToUpdate
-                _updateSuccess.value = true
+                // We don't reset _updateSuccess to false here, the UI handles it via LaunchedEffect
             } catch (e: Exception) {
-                _error.value = "Profile update failed: ${e.localizedMessage}"
+                // Revert on error
+                _userProfile.value = previousProfile
+                _updateSuccess.value = false
+                _error.value = "프로필 저장에 실패했습니다: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
