@@ -7,8 +7,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -170,7 +171,21 @@ fun CommunityContent(
                             onDelete = { post.id?.let { onDeletePost(it) } },
                             onEdit = { editingPost = post },
                             onFetchComments = { post.id?.let { onFetchComments(it) } },
-                            onAddComment = { content -> post.id?.let { onAddComment(it, content) } },
+                            onAddComment = { content -> 
+                        if (isAuthenticated) {
+                            post.id?.let { onAddComment(it, content) }
+                        } else {
+                            scope.launch {
+                                val result = snackbarHostState.showSnackbar(
+                                    message = "로그인이 필요한 서비스입니다.",
+                                    actionLabel = "로그인"
+                                )
+                                if (result == SnackbarResult.ActionPerformed) {
+                                    onNavigateToLogin()
+                                }
+                            }
+                        }
+                    },
                             onDeleteComment = { cid -> post.id?.let { onDeleteComment(it, cid) } }
                         )
                     }
@@ -532,10 +547,20 @@ fun CreatePostDialog(
         onDismissRequest = onDismiss,
         title = { Text(if (postToEdit == null) "정보 공유하기" else "글 수정하기") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
                 Text("카테고리 선택", style = MaterialTheme.typography.labelMedium)
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(communityCategories) { cat ->
+                @OptIn(ExperimentalLayoutApi::class)
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    communityCategories.forEach { cat ->
                         FilterChip(
                             selected = selectedCat == cat,
                             onClick = { selectedCat = cat },
