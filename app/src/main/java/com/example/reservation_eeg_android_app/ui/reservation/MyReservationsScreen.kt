@@ -6,6 +6,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.EventNote
 import androidx.compose.material.icons.automirrored.filled.Note
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -41,9 +42,38 @@ fun MyReservationsScreen(
     val reservations by viewModel.userReservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
+    
+    MyReservationsContent(
+        reservations = reservations,
+        isLoading = isLoading,
+        error = error,
+        sessionStatus = sessionStatus,
+        onRefresh = viewModel::fetchBookedSlots,
+        onDelete = { id -> 
+            val scope = kotlinx.coroutines.MainScope()
+            scope.launch { viewModel.deleteReservation(id) }
+        },
+        onEdit = onEdit,
+        onNewReservation = onNewReservation,
+        onNavigateToLogin = onNavigateToLogin
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MyReservationsContent(
+    reservations: List<Reservation>,
+    isLoading: Boolean,
+    error: String?,
+    sessionStatus: SessionStatus,
+    onRefresh: () -> Unit,
+    onDelete: (Int) -> Unit,
+    onEdit: (Reservation) -> Unit,
+    onNewReservation: () -> Unit,
+    onNavigateToLogin: () -> Unit
+) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    
     val isAuthenticated = sessionStatus is SessionStatus.Authenticated
     
     val gradientBackground = Brush.verticalGradient(
@@ -75,34 +105,33 @@ fun MyReservationsScreen(
     }
 
     LaunchedEffect(Unit) {
-        viewModel.fetchBookedSlots()
+        onRefresh()
     }
 
     if (reservationToDelete != null) {
         AlertDialog(
             onDismissRequest = { reservationToDelete = null },
-            title = { Text("예약 삭제") },
-            text = { Text("이 예약을 삭제하시겠습니까?") },
+            title = { Text("예약 삭제", fontWeight = FontWeight.Bold) },
+            text = { Text("이 예약을 정말 삭제하시겠습니까?") },
             confirmButton = {
                 TextButton(
                     onClick = {
                         reservationToDelete?.id?.let { id ->
-                            scope.launch {
-                                viewModel.deleteReservation(id)
-                            }
+                            onDelete(id)
                         }
                         reservationToDelete = null
                     },
                     colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("삭제")
+                    Text("삭제", fontWeight = FontWeight.Bold)
                 }
             },
             dismissButton = {
                 TextButton(onClick = { reservationToDelete = null }) {
                     Text("취소")
                 }
-            }
+            },
+            shape = RoundedCornerShape(28.dp)
         )
     }
 
@@ -113,7 +142,7 @@ fun MyReservationsScreen(
             TopAppBar(
                 title = { Text("내 예약 목록", fontWeight = FontWeight.Bold) },
                 actions = {
-                    IconButton(onClick = { viewModel.fetchBookedSlots() }) {
+                    IconButton(onClick = onRefresh) {
                         Icon(imageVector = Icons.Default.Refresh, contentDescription = "Refresh")
                     }
                 }
@@ -151,17 +180,28 @@ fun MyReservationsScreen(
                 .padding(innerPadding)
         ) {
             if (reservations.isEmpty() && !isLoading) {
-                Box(
+                Column(
                     modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
                 ) {
-                    Text("예약된 내역이 없습니다.", color = MaterialTheme.colorScheme.outline)
+                    Icon(
+                        Icons.AutoMirrored.Filled.EventNote, 
+                        contentDescription = null, 
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        "예약된 내역이 없습니다.", 
+                        color = MaterialTheme.colorScheme.outline,
+                        style = MaterialTheme.typography.bodyLarge
+                    )
                 }
             } else {
                 LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(16.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(reservations) { reservation ->
@@ -350,6 +390,7 @@ fun ReservationDetailRow(
     }
 }
 
+@OptIn(kotlin.time.ExperimentalTime::class)
 @Preview(showBackground = true)
 @Composable
 fun MyReservationsScreenPreview() {
@@ -362,12 +403,21 @@ fun MyReservationsScreenPreview() {
     )
     
     ReservationeegandroidappTheme {
-        Column(modifier = Modifier.padding(16.dp)) {
-            ReservationItem(
-                reservation = sampleReservation,
-                onDelete = {},
-                onEdit = {}
-            )
-        }
+        MyReservationsContent(
+            reservations = listOf(sampleReservation),
+            isLoading = false,
+            error = null,
+            sessionStatus = SessionStatus.Authenticated(
+                session = io.github.jan.supabase.auth.user.UserSession(
+                    accessToken = "", refreshToken = "", expiresIn = 3600, tokenType = "",
+                    user = io.github.jan.supabase.auth.user.UserInfo(id = "", aud = "", email = "", createdAt = null, updatedAt = null)
+                )
+            ),
+            onRefresh = {},
+            onDelete = {},
+            onEdit = {},
+            onNewReservation = {},
+            onNavigateToLogin = {}
+        )
     }
 }

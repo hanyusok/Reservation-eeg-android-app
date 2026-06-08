@@ -3,11 +3,14 @@ package com.example.reservation_eeg_android_app.ui.reservation
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.util.AppTextField
@@ -79,14 +82,42 @@ fun SymptomScreen(
             ChecklistItem(label = "현재 복용 중인 약물 있음")
             ChecklistItem(label = "수면 장애 여부")
             
-            Spacer(modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.height(24.dp))
             
-            Button(
-                onClick = onNext,
-                modifier = Modifier.fillMaxWidth(),
-                enabled = symptoms.isNotBlank()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                Text("다음 단계 (시간 선택)")
+                OutlinedButton(
+                    onClick = onBack,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Text(
+                        text = "취소",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Button(
+                    onClick = onNext,
+                    modifier = Modifier
+                        .weight(1.5f)
+                        .height(56.dp),
+                    shape = RoundedCornerShape(16.dp),
+                    enabled = symptoms.isNotBlank()
+                ) {
+                    Text(
+                        text = "다음 단계", 
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
