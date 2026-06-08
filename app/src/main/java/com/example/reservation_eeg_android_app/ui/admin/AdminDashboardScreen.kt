@@ -1,48 +1,673 @@
 package com.example.reservation_eeg_android_app.ui.admin
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.reservation_eeg_android_app.model.Reservation
+import com.example.reservation_eeg_android_app.model.ReservationStatus
+import com.example.reservation_eeg_android_app.model.UserProfile
+import com.example.reservation_eeg_android_app.model.BlockedSlot
+import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminReservationViewModel
+import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminUserViewModel
+import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminScheduleViewModel
+import java.time.Instant
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AdminDashboardScreen(
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    adminViewModel: AdminReservationViewModel = viewModel(),
+    userViewModel: AdminUserViewModel = viewModel(),
+    scheduleViewModel: AdminScheduleViewModel = viewModel()
 ) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("관리자 대시보드", fontWeight = FontWeight.Bold) },
-                actions = {
-                    TextButton(onClick = onSignOut) {
-                        Text("로그아웃")
-                    }
-                }
+    var selectedTab by remember { mutableIntStateOf(0) }
+    
+    Row(modifier = Modifier.fillMaxSize()) {
+        NavigationRail(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
+            header = {
+                Icon(
+                    imageVector = Icons.Default.AdminPanelSettings,
+                    contentDescription = null,
+                    modifier = Modifier.size(32.dp).padding(vertical = 16.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
+        ) {
+            NavigationRailItem(
+                selected = selectedTab == 0,
+                onClick = { selectedTab = 0 },
+                icon = { Icon(Icons.Default.Dashboard, contentDescription = "Dashboard") },
+                label = { Text("대시보드") }
+            )
+            NavigationRailItem(
+                selected = selectedTab == 1,
+                onClick = { selectedTab = 1 },
+                icon = { Icon(Icons.Default.EventNote, contentDescription = "Reservations") },
+                label = { Text("예약관리") }
+            )
+            NavigationRailItem(
+                selected = selectedTab == 2,
+                onClick = { selectedTab = 2 },
+                icon = { Icon(Icons.Default.People, contentDescription = "Users") },
+                label = { Text("회원관리") }
+            )
+            NavigationRailItem(
+                selected = selectedTab == 3,
+                onClick = { selectedTab = 3 },
+                icon = { Icon(Icons.Default.Schedule, contentDescription = "Schedule") },
+                label = { Text("일정관리") }
+            )
+            Spacer(modifier = Modifier.weight(1f))
+            NavigationRailItem(
+                selected = false,
+                onClick = onSignOut,
+                icon = { Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = "Logout") },
+                label = { Text("로그아웃") }
             )
         }
-    ) { innerPadding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding),
-            contentAlignment = Alignment.Center
+
+        Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+            when (selectedTab) {
+                0 -> AdminSummaryView(adminViewModel)
+                1 -> MasterReservationList(adminViewModel)
+                2 -> UserManagementView(userViewModel)
+                3 -> ScheduleManagementView(scheduleViewModel)
+            }
+        }
+    }
+}
+
+@Composable
+fun AdminSummaryView(viewModel: AdminReservationViewModel) {
+    val filteredReservations by viewModel.filteredReservations.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val weeklyStats by viewModel.weeklyStats.collectAsState()
+    val typeStats by viewModel.typeStats.collectAsState()
+    
+    Column(modifier = Modifier.verticalScroll(androidx.compose.foundation.rememberScrollState())) {
+        Text(
+            text = "${selectedDate.format(DateTimeFormatter.ofPattern("yyyy년 MM월 dd일"))} 현황", 
+            style = MaterialTheme.typography.headlineMedium, 
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(24.dp))
+        
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            SummaryCard("선택일 예약", filteredReservations.size.toString(), Icons.Default.People, MaterialTheme.colorScheme.primary)
+            SummaryCard("대기중", filteredReservations.count { it.status == ReservationStatus.PENDING }.toString(), Icons.Default.HourglassEmpty, Color(0xFFFFA000))
+            SummaryCard("확정됨", filteredReservations.count { it.status == ReservationStatus.CONFIRMED }.toString(), Icons.Default.CheckCircle, Color(0xFF4CAF50))
+        }
+
+        Spacer(modifier = Modifier.height(32.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(24.dp)
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(
-                    text = "환영합니다, 관리자님",
-                    style = MaterialTheme.typography.headlineMedium
+            // Weekly Chart
+            ElevatedCard(
+                modifier = Modifier.weight(1.5f),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text("최근 7일 예약 추이", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    WeeklyReservationChart(stats = weeklyStats)
+                }
+            }
+
+            // Type Distribution
+            ElevatedCard(
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(24.dp)
+            ) {
+                Column(modifier = Modifier.padding(24.dp)) {
+                    Text("검사 유형별 분포", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Spacer(modifier = Modifier.height(24.dp))
+                    TypeDistributionChart(stats = typeStats)
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(32.dp))
+    }
+}
+
+@Composable
+fun WeeklyReservationChart(stats: Map<LocalDate, Int>) {
+    val maxVal = (stats.values.maxOrNull() ?: 1).coerceAtLeast(5)
+    
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(200.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.Bottom
+    ) {
+        stats.forEach { (date, count) ->
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(count.toString(), style = MaterialTheme.typography.labelSmall)
+                Spacer(modifier = Modifier.height(4.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth(0.5f)
+                        .fillMaxHeight(count.toFloat() / maxVal)
+                        .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(MaterialTheme.colorScheme.primary, MaterialTheme.colorScheme.primaryContainer)
+                            )
+                        )
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "태블릿용 관리자 기능이 여기에 구현될 예정입니다.",
-                    style = MaterialTheme.typography.bodyLarge,
+                    text = date.format(DateTimeFormatter.ofPattern("MM/dd")),
+                    style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.outline
                 )
             }
         }
+    }
+}
+
+@Composable
+fun TypeDistributionChart(stats: Map<String, Int>) {
+    val total = stats.values.sum().coerceAtLeast(1)
+    
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        stats.forEach { (name, count) ->
+            val percentage = (count.toFloat() / total)
+            Column {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(name, style = MaterialTheme.typography.labelMedium)
+                    Text("${(percentage * 100).toInt()}%", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                LinearProgressIndicator(
+                    progress = { percentage },
+                    modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)),
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SummaryCard(title: String, value: String, icon: ImageVector, color: Color) {
+    ElevatedCard(
+        modifier = Modifier.width(200.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Column(modifier = Modifier.padding(20.dp)) {
+            Icon(icon, contentDescription = null, tint = color)
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(title, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.outline)
+            Text(value, style = MaterialTheme.typography.displaySmall, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MasterReservationList(viewModel: AdminReservationViewModel) {
+    val filteredReservations by viewModel.filteredReservations.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        viewModel.selectDate(date)
+                    }
+                    showDatePicker = false
+                }) {
+                    Text("확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("취소")
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("전체 예약 관리", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                OutlinedButton(
+                    onClick = { showDatePicker = true },
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                IconButton(onClick = { viewModel.fetchAllReservations() }) {
+                    Icon(Icons.Default.Refresh, contentDescription = "Refresh")
+                }
+            }
+        }
+        
+        Spacer(modifier = Modifier.height(16.dp))
+
+        OutlinedTextField(
+            value = searchQuery,
+            onValueChange = { viewModel.updateSearchQuery(it) },
+            modifier = Modifier.fillMaxWidth(),
+            placeholder = { Text("환자 이름 또는 검사 유형 검색") },
+            leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+            trailingIcon = if (searchQuery.isNotEmpty()) {
+                {
+                    IconButton(onClick = { viewModel.updateSearchQuery("") }) {
+                        Icon(Icons.Default.Clear, contentDescription = "Clear")
+                    }
+                }
+            } else null,
+            shape = RoundedCornerShape(16.dp),
+            singleLine = true
+        )
+
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isLoading) {
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+        }
+
+        if (filteredReservations.isEmpty() && !isLoading) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text("검색 결과가 없습니다.", color = MaterialTheme.colorScheme.outline)
+            }
+        } else {
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(filteredReservations) { reservation ->
+                    AdminReservationItem(reservation) { newStatus ->
+                        viewModel.updateReservationStatus(reservation.id!!, newStatus)
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserManagementView(viewModel: AdminUserViewModel) {
+    val users by viewModel.filteredUsers.collectAsState()
+    val searchQuery by viewModel.searchQuery.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val history by viewModel.selectedUserHistory.collectAsState()
+    
+    var selectedUser by remember { mutableStateOf<UserProfile?>(null) }
+
+    Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text("회원 관리", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = { viewModel.updateSearchQuery(it) },
+                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("이름, 이메일, 전화번호 검색") },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                shape = RoundedCornerShape(16.dp),
+                singleLine = true
+            )
+            
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (isLoading) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
+
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(users) { user ->
+                    val isSelected = selectedUser?.id == user.id
+                    OutlinedCard(
+                        onClick = { 
+                            selectedUser = user
+                            viewModel.fetchUserHistory(user.id!!)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = CardDefaults.outlinedCardColors(
+                            containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f) else Color.Transparent
+                        ),
+                        border = androidx.compose.foundation.BorderStroke(
+                            width = if (isSelected) 2.dp else 1.dp,
+                            color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+                        )
+                    ) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(
+                                modifier = Modifier.size(40.dp),
+                                shape = androidx.compose.foundation.shape.CircleShape,
+                                color = MaterialTheme.colorScheme.secondaryContainer
+                            ) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Text(user.name.take(1), fontWeight = FontWeight.Bold)
+                                }
+                            }
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Column {
+                                Text(user.name, fontWeight = FontWeight.Bold)
+                                Text(user.email, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Column(modifier = Modifier.weight(1.2f)) {
+            if (selectedUser != null) {
+                UserDetailPane(user = selectedUser!!, history = history)
+            } else {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("회원을 선택하면 상세 정보와 예약 이력을 볼 수 있습니다.", color = MaterialTheme.colorScheme.outline)
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ScheduleManagementView(viewModel: AdminScheduleViewModel) {
+    val blockedSlots by viewModel.blockedSlots.collectAsState()
+    val selectedDate by viewModel.selectedDate.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    
+    val timeSlots = listOf("09:00", "10:30", "13:00", "14:30", "16:00")
+    var showDatePicker by remember { mutableStateOf(false) }
+
+    if (showDatePicker) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    datePickerState.selectedDateMillis?.let {
+                        val date = Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate()
+                        viewModel.selectDate(date)
+                    }
+                    showDatePicker = false
+                }) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) { Text("취소") }
+            }
+        ) { DatePicker(state = datePickerState) }
+    }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("진료 일정 관리", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            OutlinedButton(
+                onClick = { showDatePicker = true },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.CalendarToday, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(selectedDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")))
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("해당 날짜의 시간별 예약 차단/해제", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(timeSlots) { slot ->
+                val fullSlotTime = "${selectedDate}T$slot:00+09:00"
+                val blockedInfo = blockedSlots.find { it.blockedAt == fullSlotTime }
+                val isBlocked = blockedInfo != null
+
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.outlinedCardColors(
+                        containerColor = if (isBlocked) MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.05f) else Color.Transparent
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.AccessTime, contentDescription = null, tint = if (isBlocked) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary)
+                            Spacer(modifier = Modifier.width(16.dp))
+                            Text(slot, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        if (isBlocked) {
+                            Button(
+                                onClick = { viewModel.unblockSlot(blockedInfo!!.id!!) },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("예약 차단 해제") }
+                        } else {
+                            OutlinedButton(
+                                onClick = { viewModel.blockSlot(slot, "내부 사정으로 인한 차단") },
+                                shape = RoundedCornerShape(8.dp)
+                            ) { Text("예약 차단하기") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserDetailPane(user: UserProfile, history: List<Reservation>) {
+    ElevatedCard(
+        modifier = Modifier.fillMaxSize(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(24.dp)) {
+            Text("회원 상세 정보", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(20.dp))
+            
+            DetailRow(label = "이름", value = user.name)
+            DetailRow(label = "연락처", value = user.phoneNumber)
+            DetailRow(label = "이메일", value = user.email)
+            DetailRow(label = "주소", value = user.address.ifBlank { "등록되지 않음" })
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
+            Text("예약 이력 (${history.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                items(history) { res ->
+                    val date = try {
+                        OffsetDateTime.parse(res.reservedAt).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                    } catch (e: Exception) { res.reservedAt }
+                    
+                    Surface(
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                    ) {
+                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(res.eegType.displayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
+                            }
+                            StatusBadge(res.status)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DetailRow(label: String, value: String) {
+    Row(modifier = Modifier.padding(vertical = 4.dp)) {
+        Text(label, modifier = Modifier.width(80.dp), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.outline)
+        Text(value, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+fun AdminReservationItem(reservation: Reservation, onStatusChange: (ReservationStatus) -> Unit) {
+    val formattedTime = try {
+        val dt = OffsetDateTime.parse(reservation.reservedAt)
+        dt.format(DateTimeFormatter.ofPattern("HH:mm"))
+    } catch (e: Exception) {
+        reservation.reservedAt
+    }
+
+    OutlinedCard(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = reservation.patientName,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    StatusBadge(reservation.status)
+                }
+                Text(
+                    text = "${reservation.eegType.displayName} | $formattedTime",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
+                if (reservation.symptoms.isNotBlank()) {
+                    Text(
+                        text = "증상: ${reservation.symptoms}",
+                        style = MaterialTheme.typography.bodySmall,
+                        modifier = Modifier.padding(top = 4.dp),
+                        maxLines = 1
+                    )
+                }
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (reservation.status == ReservationStatus.PENDING) {
+                    Button(
+                        onClick = { onStatusChange(ReservationStatus.CONFIRMED) },
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF4CAF50)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("확정")
+                    }
+                }
+                if (reservation.status == ReservationStatus.CONFIRMED) {
+                    Button(
+                        onClick = { onStatusChange(ReservationStatus.COMPLETED) },
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text("완료")
+                    }
+                }
+                OutlinedButton(
+                    onClick = { onStatusChange(ReservationStatus.CANCELLED) },
+                    shape = RoundedCornerShape(8.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("취소")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun StatusBadge(status: ReservationStatus) {
+    val color = when (status) {
+        ReservationStatus.PENDING -> Color(0xFFFFA000)
+        ReservationStatus.CONFIRMED -> Color(0xFF4CAF50)
+        ReservationStatus.COMPLETED -> MaterialTheme.colorScheme.primary
+        ReservationStatus.CANCELLED -> MaterialTheme.colorScheme.error
+    }
+    Surface(
+        color = color.copy(alpha = 0.1f),
+        shape = RoundedCornerShape(4.dp),
+        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f))
+    ) {
+        Text(
+            text = when(status) {
+                ReservationStatus.PENDING -> "대기중"
+                ReservationStatus.CONFIRMED -> "확정됨"
+                ReservationStatus.COMPLETED -> "진료완료"
+                ReservationStatus.CANCELLED -> "취소됨"
+            },
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+            style = MaterialTheme.typography.labelSmall,
+            color = color,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

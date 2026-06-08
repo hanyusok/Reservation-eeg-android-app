@@ -25,6 +25,7 @@ import com.example.reservation_eeg_android_app.ui.community.CommunityScreen
 import com.example.reservation_eeg_android_app.model.mockDoctors
 import com.example.reservation_eeg_android_app.model.UserRole
 import com.example.reservation_eeg_android_app.ui.admin.AdminDashboardScreen
+import com.example.reservation_eeg_android_app.ui.notification.NotificationScreen
 import com.example.reservation_eeg_android_app.ui.util.PlaceholderScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
@@ -136,7 +137,7 @@ fun NavGraph(
             )
         }
         composable(Screen.Notification.route) {
-            PlaceholderScreen("알림")
+            NotificationScreen()
         }
         composable(Screen.Community.route) {
             val sessionStatus by authViewModel.sessionStatus.collectAsState()

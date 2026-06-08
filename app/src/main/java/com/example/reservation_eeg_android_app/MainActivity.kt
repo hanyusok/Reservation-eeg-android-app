@@ -30,6 +30,9 @@ import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 import io.github.jan.supabase.auth.handleDeeplinks
 
+import androidx.compose.runtime.collectAsState
+import com.example.reservation_eeg_android_app.model.UserRole
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -41,6 +44,9 @@ class MainActivity : ComponentActivity() {
                 val viewModel: ReservationViewModel = viewModel()
                 val authViewModel: AuthViewModel = viewModel()
                 
+                val userProfile by authViewModel.userProfile.collectAsState()
+                val isAdmin = userProfile?.role == UserRole.ADMIN
+
                 val items = listOf(
                     Screen.Clinic to "클리닉",
                     Screen.Community to "커뮤니티",
@@ -52,35 +58,37 @@ class MainActivity : ComponentActivity() {
                 Scaffold(
                     modifier = Modifier.fillMaxSize(),
                     bottomBar = {
-                        NavigationBar {
-                            val navBackStackEntry by navController.currentBackStackEntryAsState()
-                            val currentDestination = navBackStackEntry?.destination
-                            items.forEach { (screen, label) ->
-                                NavigationBarItem(
-                                    icon = { 
-                                        Icon(
-                                            when(screen) {
-                                                Screen.Clinic -> Icons.Default.Home
-                                                Screen.MyReservations -> Icons.Default.List
-                                                Screen.Notification -> Icons.Default.Notifications
-                                                Screen.Community -> Icons.Default.Groups
-                                                else -> Icons.Default.AccountCircle
-                                            },
-                                            contentDescription = null
-                                        )
-                                    },
-                                    label = { Text(label) },
-                                    selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
-                                    onClick = {
-                                        navController.navigate(screen.route) {
-                                            popUpTo(navController.graph.findStartDestination().id) {
-                                                saveState = true
+                        if (!isAdmin) {
+                            NavigationBar {
+                                val navBackStackEntry by navController.currentBackStackEntryAsState()
+                                val currentDestination = navBackStackEntry?.destination
+                                items.forEach { (screen, label) ->
+                                    NavigationBarItem(
+                                        icon = { 
+                                            Icon(
+                                                when(screen) {
+                                                    Screen.Clinic -> Icons.Default.Home
+                                                    Screen.MyReservations -> Icons.Default.List
+                                                    Screen.Notification -> Icons.Default.Notifications
+                                                    Screen.Community -> Icons.Default.Groups
+                                                    else -> Icons.Default.AccountCircle
+                                                },
+                                                contentDescription = null
+                                            )
+                                        },
+                                        label = { Text(label) },
+                                        selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true,
+                                        onClick = {
+                                            navController.navigate(screen.route) {
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
+                                                launchSingleTop = true
+                                                restoreState = true
                                             }
-                                            launchSingleTop = true
-                                            restoreState = true
                                         }
-                                    }
-                                )
+                                    )
+                                }
                             }
                         }
                     }

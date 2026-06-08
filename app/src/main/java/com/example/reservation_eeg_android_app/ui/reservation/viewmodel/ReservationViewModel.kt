@@ -118,14 +118,26 @@ class ReservationViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             try {
-                // Fetch ALL bookings for slot checking (time slots are public info for availability)
+                // Fetch ALL bookings for slot checking
                 val allBookings = supabaseClient.postgrest["bookings"]
                     .select()
                     .decodeList<Reservation>()
-                
-                _bookedSlots.value = allBookings.mapNotNull { 
+
+                // Fetch admin-blocked slots
+                val blockedResults = try {
+                    supabaseClient.postgrest["blocked_slots"]
+                        .select()
+                        .decodeList<com.example.reservation_eeg_android_app.model.BlockedSlot>()
+                } catch (e: Exception) { emptyList() }
+
+                val bookingInstants = allBookings.mapNotNull { 
                     try { OffsetDateTime.parse(it.reservedAt).toInstant() } catch (_: Exception) { null } 
                 }
+                val blockedInstants = blockedResults.mapNotNull {
+                    try { OffsetDateTime.parse(it.blockedAt).toInstant() } catch (_: Exception) { null }
+                }
+
+                _bookedSlots.value = bookingInstants + blockedInstants
                 
                 // Fetch only USER'S reservations using server-side filtering and ordering
                 if (currentUserId != null) {
