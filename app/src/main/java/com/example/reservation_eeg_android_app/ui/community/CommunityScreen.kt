@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.CommunityPost
+import com.example.reservation_eeg_android_app.model.PostComment
 import com.example.reservation_eeg_android_app.model.communityCategories
 import com.example.reservation_eeg_android_app.ui.community.viewmodel.CommunityViewModel
 import io.github.jan.supabase.auth.auth
@@ -52,10 +53,12 @@ fun CommunityScreen(
     val error by viewModel.error.collectAsState()
     val isPostSuccess by viewModel.isPostSuccess.collectAsState()
     val comments by viewModel.comments.collectAsState()
+    val currentUserId = remember { supabaseClient.auth.currentUserOrNull()?.id }
 
     CommunityContent(
         posts = posts,
         comments = comments,
+        currentUserId = currentUserId,
         isLoading = isLoading,
         error = error,
         isPostSuccess = isPostSuccess,
@@ -80,7 +83,8 @@ fun CommunityScreen(
 @Composable
 fun CommunityContent(
     posts: List<CommunityPost>,
-    comments: Map<Int, List<com.example.reservation_eeg_android_app.model.PostComment>>,
+    comments: Map<Int, List<PostComment>>,
+    currentUserId: String?,
     isLoading: Boolean,
     error: String?,
     isPostSuccess: Boolean,
@@ -166,6 +170,7 @@ fun CommunityContent(
                     items(filteredPosts) { post ->
                         PostCard(
                             post = post,
+                            currentUserId = currentUserId,
                             comments = comments[post.id ?: -1] ?: emptyList(),
                             onToggleLike = { post.id?.let { onToggleLike(it) } },
                             onDelete = { post.id?.let { onDeletePost(it) } },
@@ -269,7 +274,8 @@ fun CategoryRow(
 @Composable
 fun PostCard(
     post: CommunityPost,
-    comments: List<com.example.reservation_eeg_android_app.model.PostComment>,
+    currentUserId: String?,
+    comments: List<PostComment>,
     onToggleLike: () -> Unit,
     onDelete: () -> Unit,
     onEdit: () -> Unit,
@@ -277,7 +283,6 @@ fun PostCard(
     onAddComment: (String) -> Unit,
     onDeleteComment: (Long) -> Unit
 ) {
-    val currentUserId = remember { supabaseClient.auth.currentUserOrNull()?.id }
     val isOwner = post.userId == currentUserId
     var showMenu by remember { mutableStateOf(false) }
     var showComments by remember { mutableStateOf(false) }
@@ -661,6 +666,7 @@ fun CommunityScreenPreview() {
             title = "EEG 검사 전 주의사항",
             content = "EEG 검사를 받기 전에는 머리를 깨끗이 감고 오시는 것이 좋습니다. 젤이 잘 붙어야 정확한 측정이 가능하거든요.",
             likesCount = 5,
+            commentsCount = 2,
             createdAt = "2023-10-01T10:00:00Z"
         ),
         CommunityPost(
@@ -670,14 +676,26 @@ fun CommunityScreenPreview() {
             title = "가정에서 하는 케어 방법",
             content = "가정에서도 충분한 휴식과 규칙적인 생활 습관을 유지하는 것이 중요합니다.",
             likesCount = 12,
+            commentsCount = 1,
             createdAt = "2023-10-02T11:30:00Z"
+        )
+    )
+
+    val sampleComments = mapOf(
+        1 to listOf(
+            PostComment(id = 1L, postId = 1, userId = "user1", userName = "이영희", content = "좋은 정보 감사합니다!", createdAt = "2023-10-01T12:00:00Z"),
+            PostComment(id = 2L, postId = 1, userId = "user2", userName = "박지민", content = "검사 시간이 얼마나 걸리나요?", createdAt = "2023-10-01T13:00:00Z")
+        ),
+        2 to listOf(
+            PostComment(id = 3L, postId = 2, userId = "user1", userName = "이영희", content = "동감합니다. 규칙적인 생활이 최고죠.", createdAt = "2023-10-02T14:00:00Z")
         )
     )
     
     com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme {
         CommunityContent(
             posts = samplePosts,
-            comments = emptyMap(),
+            comments = sampleComments,
+            currentUserId = "user123",
             isLoading = false,
             error = null,
             isPostSuccess = false,

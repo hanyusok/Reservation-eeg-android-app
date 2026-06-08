@@ -3,6 +3,7 @@ package com.example.reservation_eeg_android_app.ui.community.viewmodel
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.reservation_eeg_android_app.data.repository.UserRepository
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.CommunityPost
 import com.example.reservation_eeg_android_app.model.PostComment
@@ -43,6 +44,8 @@ class CommunityViewModel : ViewModel() {
     }
 
     fun fetchPosts() {
+        if (_isLoading.value) return // Prevent concurrent fetches
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
@@ -82,20 +85,15 @@ class CommunityViewModel : ViewModel() {
             try {
                 val user = supabaseClient.auth.currentUserOrNull() ?: throw Exception("로그인이 필요합니다.")
                 
-                // 1. Fetch user name for the post
-                val profile = supabaseClient.postgrest["profiles"]
-                    .select { filter { eq("id", user.id) } }
-                    .decodeSingleOrNull<UserProfile>()
+                // Use UserRepository to get current user's name
+                val profile = UserRepository.userProfile.value ?: UserRepository.fetchProfile(user.id)
                 val userName = profile?.name ?: user.email ?: "익명 사용자"
 
                 var imageUrl: String? = null
                 
                 // 2. Upload image if exists
                 if (imageBytes != null) {
-                    val fileName = "${user.id}_${System.currentTimeMillis()}.jpg"
-                    val bucket = supabaseClient.storage["post-images"]
-                    bucket.upload(fileName, imageBytes)
-                    imageUrl = bucket.publicUrl(fileName)
+                    imageUrl = uploadPostImage(user.id, imageBytes)
                 }
 
                 // 3. Create post entry
@@ -172,11 +170,13 @@ class CommunityViewModel : ViewModel() {
                     }
                 }
                 
-                // Finally fetch to ensure we are in sync with server (triggers, etc)
-                fetchPosts()
+                // No need to call fetchPosts() here on success. 
+                // The optimistic UI update already handled the visual change.
+                // Re-fetching immediately often causes the count to "jump" back 
+                // due to tiny network/trigger delays or race conditions.
             } catch (e: Exception) {
                 Log.e("CommunityDebug", "ToggleLike Error: ${e.localizedMessage}", e)
-                // In case of error, fetch posts to revert to server state
+                // Only revert if something actually failed
                 fetchPosts()
                 _error.value = "좋아요 처리에 실패했습니다."
             } finally {
@@ -205,14 +205,20 @@ class CommunityViewModel : ViewModel() {
     }
 
     fun addComment(postId: Int, content: String) {
+        val currentPosts = _posts.value.toMutableList()
+        val index = currentPosts.indexOfFirst { it.id == postId }
+        if (index != -1) {
+            val post = currentPosts[index]
+            currentPosts[index] = post.copy(commentsCount = post.commentsCount + 1)
+            _posts.value = currentPosts
+        }
+
         viewModelScope.launch {
             try {
                 val user = supabaseClient.auth.currentUserOrNull() ?: throw Exception("로그인이 필요합니다.")
                 
-                // Fetch user name for the comment
-                val profile = supabaseClient.postgrest["profiles"]
-                    .select { filter { eq("id", user.id) } }
-                    .decodeSingleOrNull<UserProfile>()
+                // Use UserRepository to get current user's name
+                val profile = UserRepository.userProfile.value ?: UserRepository.fetchProfile(user.id)
                 val userName = profile?.name ?: user.email ?: "익명 사용자"
 
                 val commentData = buildJsonObject {
@@ -225,24 +231,32 @@ class CommunityViewModel : ViewModel() {
                 supabaseClient.postgrest["post_comments"].insert(commentData)
                 
                 fetchComments(postId)
-                fetchPosts() // To update comments_count if tracked
             } catch (e: Exception) {
                 Log.e("CommunityDebug", "AddComment Error: ${e.localizedMessage}", e)
+                fetchPosts() // Revert to server state on error
                 _error.value = "댓글 작성에 실패했습니다."
             }
         }
     }
 
     fun deleteComment(postId: Int, commentId: Long) {
+        val currentPosts = _posts.value.toMutableList()
+        val index = currentPosts.indexOfFirst { it.id == postId }
+        if (index != -1) {
+            val post = currentPosts[index]
+            currentPosts[index] = post.copy(commentsCount = (post.commentsCount - 1).coerceAtLeast(0))
+            _posts.value = currentPosts
+        }
+
         viewModelScope.launch {
             try {
                 supabaseClient.postgrest["post_comments"].delete {
                     filter { eq("id", commentId) }
                 }
                 fetchComments(postId)
-                fetchPosts()
             } catch (e: Exception) {
                 Log.e("CommunityDebug", "DeleteComment Error: ${e.localizedMessage}", e)
+                fetchPosts() // Revert to server state on error
                 _error.value = "댓글 삭제에 실패했습니다."
             }
         }
@@ -260,10 +274,7 @@ class CommunityViewModel : ViewModel() {
                 if (imageBytes != null) {
                     Log.d("CommunityDebug", "UpdatePost: Uploading new image (${imageBytes.size} bytes)...")
                     val user = supabaseClient.auth.currentUserOrNull() ?: throw Exception("로그인이 필요합니다.")
-                    val fileName = "${user.id}_${System.currentTimeMillis()}.jpg"
-                    val bucket = supabaseClient.storage["post-images"]
-                    bucket.upload(fileName, imageBytes)
-                    imageUrl = bucket.publicUrl(fileName)
+                    imageUrl = uploadPostImage(user.id, imageBytes)
                     Log.d("CommunityDebug", "UpdatePost: Image uploaded: $imageUrl")
                 }
 
@@ -317,5 +328,12 @@ class CommunityViewModel : ViewModel() {
                 _isLoading.value = false
             }
         }
+    }
+
+    private suspend fun uploadPostImage(userId: String, imageBytes: ByteArray): String {
+        val fileName = "${userId}_${System.currentTimeMillis()}.jpg"
+        val bucket = supabaseClient.storage["post-images"]
+        bucket.upload(fileName, imageBytes)
+        return bucket.publicUrl(fileName)
     }
 }

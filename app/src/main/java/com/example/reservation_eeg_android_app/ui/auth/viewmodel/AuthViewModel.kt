@@ -2,6 +2,7 @@ package com.example.reservation_eeg_android_app.ui.auth.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.reservation_eeg_android_app.data.repository.UserRepository
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.UserProfile
@@ -23,14 +24,11 @@ class AuthViewModel : ViewModel() {
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _userProfile = MutableStateFlow<UserProfile?>(null)
-    val userProfile: StateFlow<UserProfile?> = _userProfile.asStateFlow()
+    val userProfile: StateFlow<UserProfile?> = UserRepository.userProfile
+    val familyMembers: StateFlow<List<FamilyMember>> = UserRepository.familyMembers
 
     private val _updateSuccess = MutableStateFlow(false)
     val updateSuccess: StateFlow<Boolean> = _updateSuccess.asStateFlow()
-
-    private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
-    val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
 
     val sessionStatus: StateFlow<SessionStatus> = supabaseClient.auth.sessionStatus
 
@@ -39,11 +37,10 @@ class AuthViewModel : ViewModel() {
             sessionStatus.collect { status ->
                 if (status is SessionStatus.Authenticated) {
                     val userId = status.session.user?.id ?: ""
-                    fetchProfile(userId)
-                    fetchFamilyMembers()
+                    UserRepository.fetchProfile(userId)
+                    UserRepository.fetchFamilyMembers()
                 } else {
-                    _userProfile.value = null
-                    _familyMembers.value = emptyList()
+                    UserRepository.clearData()
                 }
             }
         }
@@ -51,44 +48,25 @@ class AuthViewModel : ViewModel() {
 
     fun fetchProfile(userId: String) {
         viewModelScope.launch {
-            try {
-                val profile = supabaseClient.postgrest["profiles"]
-                    .select {
-                        filter {
-                            eq("id", userId)
-                        }
-                    }
-                    .decodeSingleOrNull<UserProfile>()
-                _userProfile.value = profile ?: UserProfile(id = userId, email = supabaseClient.auth.currentUserOrNull()?.email ?: "")
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            UserRepository.fetchProfile(userId)
         }
     }
 
     fun updateProfile(profile: UserProfile) {
         viewModelScope.launch {
-            // Optimistic update: UI will close and show new data immediately
-            val previousProfile = _userProfile.value
-            _userProfile.value = profile
+            // Optimistic update
+            val previousProfile = UserRepository.userProfile.value
             _updateSuccess.value = true
             
             _isLoading.value = true
             _error.value = null
-            try {
-                val currentUserId = supabaseClient.auth.currentUserOrNull()?.id ?: profile.id ?: ""
-                val profileToUpdate = profile.copy(id = currentUserId)
-                
-                supabaseClient.postgrest["profiles"].upsert(profileToUpdate)
-                // We don't reset _updateSuccess to false here, the UI handles it via LaunchedEffect
-            } catch (e: Exception) {
-                // Revert on error
-                _userProfile.value = previousProfile
+            
+            if (!UserRepository.updateProfile(profile)) {
                 _updateSuccess.value = false
-                _error.value = "프로필 저장에 실패했습니다: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+                _error.value = "프로필 저장에 실패했습니다."
             }
+            
+            _isLoading.value = false
         }
     }
 
@@ -169,75 +147,38 @@ class AuthViewModel : ViewModel() {
     }
 
     fun fetchFamilyMembers() {
-        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
-            _isLoading.value = true
-            try {
-                val members = supabaseClient.postgrest["family_members"]
-                    .select {
-                        filter {
-                            eq("user_id", userId)
-                        }
-                    }
-                    .decodeList<FamilyMember>()
-                _familyMembers.value = members
-            } catch (e: Exception) {
-                e.printStackTrace()
-            } finally {
-                _isLoading.value = false
-            }
+            UserRepository.fetchFamilyMembers()
         }
     }
 
     fun addFamilyMember(member: FamilyMember) {
-        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                val memberWithUserId = member.copy(userId = userId)
-                supabaseClient.postgrest["family_members"].insert(memberWithUserId)
-                fetchFamilyMembers()
-            } catch (e: Exception) {
-                _error.value = "Failed to add family member: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+            if (!UserRepository.addFamilyMember(member)) {
+                _error.value = "Failed to add family member"
             }
+            _isLoading.value = false
         }
     }
 
     fun updateFamilyMember(member: FamilyMember) {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                supabaseClient.postgrest["family_members"].update(member) {
-                    filter {
-                        eq("id", member.id ?: 0)
-                    }
-                }
-                fetchFamilyMembers()
-            } catch (e: Exception) {
-                _error.value = "Failed to update family member: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+            if (!UserRepository.updateFamilyMember(member)) {
+                _error.value = "Failed to update family member"
             }
+            _isLoading.value = false
         }
     }
 
     fun deleteFamilyMember(memberId: Int) {
         viewModelScope.launch {
             _isLoading.value = true
-            try {
-                supabaseClient.postgrest["family_members"].delete {
-                    filter {
-                        eq("id", memberId)
-                    }
-                }
-                fetchFamilyMembers()
-            } catch (e: Exception) {
-                _error.value = "Failed to delete family member: ${e.localizedMessage}"
-            } finally {
-                _isLoading.value = false
+            if (!UserRepository.deleteFamilyMember(memberId)) {
+                _error.value = "Failed to delete family member"
             }
+            _isLoading.value = false
         }
     }
 }

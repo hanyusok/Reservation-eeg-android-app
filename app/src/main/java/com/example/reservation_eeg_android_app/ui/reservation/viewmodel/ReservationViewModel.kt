@@ -3,6 +3,7 @@ package com.example.reservation_eeg_android_app.ui.reservation.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.reservation_eeg_android_app.data.SupabaseConfig
+import com.example.reservation_eeg_android_app.data.repository.UserRepository
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.FamilyMember
@@ -15,8 +16,11 @@ import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.Instant
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 class ReservationViewModel : ViewModel() {
@@ -26,11 +30,10 @@ class ReservationViewModel : ViewModel() {
     private val _patientName = MutableStateFlow("")
     val patientName: StateFlow<String> = _patientName.asStateFlow()
 
-    private val _userName = MutableStateFlow("")
-    val userName: StateFlow<String> = _userName.asStateFlow()
+    val userName: StateFlow<String> = UserRepository.userProfile.map { it?.name ?: "" }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
 
-    private val _familyMembers = MutableStateFlow<List<FamilyMember>>(emptyList())
-    val familyMembers: StateFlow<List<FamilyMember>> = _familyMembers.asStateFlow()
+    val familyMembers: StateFlow<List<FamilyMember>> = UserRepository.familyMembers
 
     private val _symptoms = MutableStateFlow("")
     val symptoms: StateFlow<String> = _symptoms.asStateFlow()
@@ -65,47 +68,25 @@ class ReservationViewModel : ViewModel() {
         viewModelScope.launch {
             supabaseClient.auth.sessionStatus.collect { status ->
                 if (status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) {
-                    fetchUserProfile()
-                    fetchFamilyMembers()
-                } else {
-                    _userName.value = ""
-                    _familyMembers.value = emptyList()
-                    _patientName.value = ""
+                    UserRepository.fetchProfile(status.session.user?.id ?: "")
+                    UserRepository.fetchFamilyMembers()
                 }
             }
         }
-    }
-
-    private fun fetchUserProfile() {
-        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
+        
+        // Initialize patient name from profile
         viewModelScope.launch {
-            try {
-                val profile = supabaseClient.postgrest["profiles"]
-                    .select { filter { eq("id", userId) } }
-                    .decodeSingleOrNull<UserProfile>()
-                if (profile != null) {
-                    _userName.value = profile.name
-                    if (_patientName.value.isEmpty()) {
-                        _patientName.value = profile.name
-                    }
+            UserRepository.userProfile.collect { profile ->
+                if (profile != null && _patientName.value.isEmpty()) {
+                    _patientName.value = profile.name
                 }
-            } catch (e: Exception) {
-                e.printStackTrace()
             }
         }
     }
 
     fun fetchFamilyMembers() {
-        val userId = supabaseClient.auth.currentUserOrNull()?.id ?: return
         viewModelScope.launch {
-            try {
-                val members = supabaseClient.postgrest["family_members"]
-                    .select { filter { eq("user_id", userId) } }
-                    .decodeList<FamilyMember>()
-                _familyMembers.value = members
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+            UserRepository.fetchFamilyMembers()
         }
     }
 
@@ -133,9 +114,8 @@ class ReservationViewModel : ViewModel() {
         editingReservationId = null
         _selectedType.value = null
         _symptoms.value = ""
-        // We don't necessarily clear patientName here if we want it to default to user, 
         // but maybe we should reset it to the user's name.
-        fetchUserProfile() 
+        _patientName.value = UserRepository.userProfile.value?.name ?: ""
         _selectedDate.value = LocalDate.now(SupabaseConfig.KST_ZONE_ID)
         _originalReservedAt.value = null
         _isReservationSuccess.value = false
