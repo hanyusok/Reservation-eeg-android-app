@@ -54,20 +54,21 @@ class AuthViewModel : ViewModel() {
 
     fun updateProfile(profile: UserProfile) {
         viewModelScope.launch {
-            // Optimistic update
-            val previousProfile = UserRepository.userProfile.value
-            _updateSuccess.value = true
-            
             _isLoading.value = true
             _error.value = null
             
-            if (!UserRepository.updateProfile(profile)) {
-                _updateSuccess.value = false
+            if (UserRepository.updateProfile(profile)) {
+                _updateSuccess.value = true
+            } else {
                 _error.value = "프로필 저장에 실패했습니다."
             }
             
             _isLoading.value = false
         }
+    }
+
+    fun resetUpdateSuccess() {
+        _updateSuccess.value = false
     }
 
     fun signUp(email: String, password: String) {

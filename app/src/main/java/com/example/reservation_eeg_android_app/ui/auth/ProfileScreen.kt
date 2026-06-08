@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.UserProfile
+import com.example.reservation_eeg_android_app.model.UserRole
 import com.example.reservation_eeg_android_app.ui.auth.viewmodel.AuthViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 import com.example.reservation_eeg_android_app.ui.util.AppTextField
@@ -42,6 +43,7 @@ import io.github.jan.supabase.auth.user.UserSession
 fun ProfileScreen(
     viewModel: AuthViewModel,
     onNavigateToFamilyMembers: () -> Unit,
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     val sessionStatus by viewModel.sessionStatus.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -64,7 +66,9 @@ fun ProfileScreen(
         onSignInWithGoogle = { viewModel.signInWithGoogle() },
         onSignInWithKakao = { viewModel.signInWithKakao() },
         onNavigateToFamilyMembers = onNavigateToFamilyMembers,
-        onClearError = viewModel::clearError
+        onNavigateToAdmin = onNavigateToAdmin,
+        onClearError = viewModel::clearError,
+        onResetUpdateSuccess = viewModel::resetUpdateSuccess
     )
 }
 
@@ -84,7 +88,9 @@ fun ProfileContent(
     onSignInWithGoogle: () -> Unit,
     onSignInWithKakao: () -> Unit,
     onNavigateToFamilyMembers: () -> Unit,
-    onClearError: () -> Unit
+    onNavigateToAdmin: () -> Unit = {},
+    onClearError: () -> Unit,
+    onResetUpdateSuccess: () -> Unit = {}
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     var isEditing by remember { mutableStateOf(value = false) }
@@ -92,6 +98,7 @@ fun ProfileContent(
     LaunchedEffect(updateSuccess) {
         if (updateSuccess) {
             snackbarHostState.showSnackbar("프로필 정보가 저장되었습니다.")
+            onResetUpdateSuccess()
             isEditing = false
         }
     }
@@ -163,7 +170,8 @@ fun ProfileContent(
                             familyMembers = familyMembers,
                             onEditClick = { isEditing = true },
                             onSignOut = onSignOut,
-                            onNavigateToFamilyMembers = onNavigateToFamilyMembers
+                            onNavigateToFamilyMembers = onNavigateToFamilyMembers,
+                            onNavigateToAdmin = onNavigateToAdmin
                         )
                     }
                 }
@@ -194,7 +202,8 @@ fun ProfileOverview(
     familyMembers: List<FamilyMember>,
     onEditClick: () -> Unit,
     onSignOut: () -> Unit,
-    onNavigateToFamilyMembers: () -> Unit
+    onNavigateToFamilyMembers: () -> Unit,
+    onNavigateToAdmin: () -> Unit = {}
 ) {
     Column(
         modifier = Modifier
@@ -305,6 +314,23 @@ fun ProfileOverview(
                     Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Edit Profile", fontWeight = FontWeight.Bold)
+                }
+
+                if (profile.role == UserRole.ADMIN) {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = onNavigateToAdmin,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.secondary
+                        ),
+                        contentPadding = PaddingValues(vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Default.Dashboard, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Admin Dashboard", fontWeight = FontWeight.Bold)
+                    }
                 }
             }
         }

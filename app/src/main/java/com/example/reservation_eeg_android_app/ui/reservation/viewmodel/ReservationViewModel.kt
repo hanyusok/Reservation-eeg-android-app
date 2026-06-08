@@ -64,16 +64,6 @@ class ReservationViewModel : ViewModel() {
     init {
         fetchBookedSlots()
         
-        // Reactively fetch profile and family members when auth status changes
-        viewModelScope.launch {
-            supabaseClient.auth.sessionStatus.collect { status ->
-                if (status is io.github.jan.supabase.auth.status.SessionStatus.Authenticated) {
-                    UserRepository.fetchProfile(status.session.user?.id ?: "")
-                    UserRepository.fetchFamilyMembers()
-                }
-            }
-        }
-        
         // Initialize patient name from profile
         viewModelScope.launch {
             UserRepository.userProfile.collect { profile ->

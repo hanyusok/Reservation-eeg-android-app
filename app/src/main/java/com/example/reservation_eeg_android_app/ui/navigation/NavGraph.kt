@@ -23,9 +23,12 @@ import com.example.reservation_eeg_android_app.ui.clinic.ClinicScreen
 import com.example.reservation_eeg_android_app.ui.clinic.DoctorDetailScreen
 import com.example.reservation_eeg_android_app.ui.community.CommunityScreen
 import com.example.reservation_eeg_android_app.model.mockDoctors
+import com.example.reservation_eeg_android_app.model.UserRole
+import com.example.reservation_eeg_android_app.ui.admin.AdminDashboardScreen
 import com.example.reservation_eeg_android_app.ui.util.PlaceholderScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
+import androidx.compose.runtime.LaunchedEffect
 
 sealed class Screen(val route: String) {
     object Clinic : Screen("clinic")
@@ -37,6 +40,7 @@ sealed class Screen(val route: String) {
     object Community : Screen("community")
     object Profile : Screen("profile")
     object FamilyMembers : Screen("family_members")
+    object AdminDashboard : Screen("admin_dashboard")
     object DoctorDetail : Screen("doctor_detail/{doctorId}") {
         fun createRoute(doctorId: String) = "doctor_detail/$doctorId"
     }
@@ -48,6 +52,19 @@ fun NavGraph(
     viewModel: ReservationViewModel,
     authViewModel: AuthViewModel
 ) {
+    val userProfile by authViewModel.userProfile.collectAsState()
+
+    LaunchedEffect(userProfile) {
+        userProfile?.let { profile ->
+            val currentRoute = navController.currentDestination?.route
+            if (profile.role == UserRole.ADMIN && currentRoute != Screen.AdminDashboard.route) {
+                navController.navigate(Screen.AdminDashboard.route) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+        }
+    }
+
     NavHost(
         navController = navController,
         startDestination = Screen.Clinic.route
@@ -131,13 +148,24 @@ fun NavGraph(
         composable(Screen.Profile.route) {
             ProfileScreen(
                 viewModel = authViewModel,
-                onNavigateToFamilyMembers = { navController.navigate(Screen.FamilyMembers.route) }
+                onNavigateToFamilyMembers = { navController.navigate(Screen.FamilyMembers.route) },
+                onNavigateToAdmin = { navController.navigate(Screen.AdminDashboard.route) }
             )
         }
         composable(Screen.FamilyMembers.route) {
             FamilyMembersScreen(
                 viewModel = authViewModel,
                 onBack = { navController.popBackStack() }
+            )
+        }
+        composable(Screen.AdminDashboard.route) {
+            AdminDashboardScreen(
+                onSignOut = { 
+                    authViewModel.signOut()
+                    navController.navigate(Screen.Clinic.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
             )
         }
     }

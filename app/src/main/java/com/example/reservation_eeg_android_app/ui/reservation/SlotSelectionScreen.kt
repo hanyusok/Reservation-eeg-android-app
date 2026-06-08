@@ -287,52 +287,80 @@ fun SlotSelectionContent(
 
 @Composable
 fun SlotItem(slot: String, isSelected: Boolean, isBooked: Boolean, onClick: () -> Unit) {
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(enabled = !isBooked, onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = when {
-                isBooked -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                isSelected -> MaterialTheme.colorScheme.primaryContainer
-                else -> MaterialTheme.colorScheme.surface
-            }
-        ),
-        elevation = CardDefaults.cardElevation(
-            defaultElevation = if (isSelected) 4.dp else 1.dp
-        ),
-        border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
-    ) {
-        Row(
-            modifier = Modifier
-                .padding(16.dp)
-                .fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+    if (isBooked) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+            ),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f))
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    imageVector = Icons.Default.AccessTime,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = if (isBooked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = slot, 
-                    style = MaterialTheme.typography.bodyLarge,
-                    fontWeight = FontWeight.Bold,
-                    color = if (isBooked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
-                )
-            }
-            when {
-                isBooked -> Badge(containerColor = MaterialTheme.colorScheme.errorContainer) {
-                    Text("예약 불가", color = MaterialTheme.colorScheme.onErrorContainer)
+            SlotItemContent(slot = slot, isBooked = true, isSelected = false)
+        }
+    } else {
+        Card(
+            onClick = onClick,
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(
+                defaultElevation = if (isSelected) 4.dp else 1.dp
+            ),
+            border = if (isSelected) BorderStroke(2.dp, MaterialTheme.colorScheme.primary) else null
+        ) {
+            SlotItemContent(slot = slot, isBooked = false, isSelected = isSelected)
+        }
+    }
+}
+
+@Composable
+fun SlotItemContent(slot: String, isBooked: Boolean, isSelected: Boolean) {
+    Row(
+        modifier = Modifier
+            .padding(horizontal = 20.dp, vertical = 16.dp)
+            .fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(
+                imageVector = Icons.Default.AccessTime,
+                contentDescription = null,
+                modifier = Modifier.size(20.dp),
+                tint = if (isBooked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.primary
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = slot, 
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.Bold,
+                color = if (isBooked) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.onSurface
+            )
+        }
+        when {
+            isBooked -> {
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.8f),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "예약 불가",
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
-                isSelected -> Icon(Icons.Default.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
             }
+            isSelected -> Icon(
+                Icons.Default.CheckCircle, 
+                contentDescription = null, 
+                tint = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.size(24.dp)
+            )
         }
     }
 }
