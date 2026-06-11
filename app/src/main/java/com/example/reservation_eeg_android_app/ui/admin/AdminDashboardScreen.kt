@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -25,9 +26,11 @@ import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.model.ReservationStatus
 import com.example.reservation_eeg_android_app.model.UserProfile
 import com.example.reservation_eeg_android_app.model.BlockedSlot
+import com.example.reservation_eeg_android_app.model.Notification
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminReservationViewModel
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminUserViewModel
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminScheduleViewModel
+import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminMessageViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -39,7 +42,8 @@ fun AdminDashboardScreen(
     onSignOut: () -> Unit,
     adminViewModel: AdminReservationViewModel = viewModel(),
     userViewModel: AdminUserViewModel = viewModel(),
-    scheduleViewModel: AdminScheduleViewModel = viewModel()
+    scheduleViewModel: AdminScheduleViewModel = viewModel(),
+    messageViewModel: AdminMessageViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableIntStateOf(0) }
     
@@ -79,6 +83,12 @@ fun AdminDashboardScreen(
                 icon = { Icon(Icons.Default.Schedule, contentDescription = "Schedule") },
                 label = { Text("일정관리") }
             )
+            NavigationRailItem(
+                selected = selectedTab == 4,
+                onClick = { selectedTab = 4 },
+                icon = { Icon(Icons.Default.Message, contentDescription = "Messages") },
+                label = { Text("메시지센터") }
+            )
             Spacer(modifier = Modifier.weight(1f))
             NavigationRailItem(
                 selected = false,
@@ -88,12 +98,19 @@ fun AdminDashboardScreen(
             )
         }
 
-        Column(modifier = Modifier.fillMaxSize().padding(24.dp)) {
+        // Main Content Area - Fixed with weight to prevent pushing Rail out
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxHeight()
+                .padding(24.dp)
+        ) {
             when (selectedTab) {
                 0 -> AdminSummaryView(adminViewModel)
                 1 -> MasterReservationList(adminViewModel)
                 2 -> UserManagementView(userViewModel)
                 3 -> ScheduleManagementView(scheduleViewModel)
+                4 -> MessageManagementView(messageViewModel)
             }
         }
     }
@@ -345,8 +362,21 @@ fun UserManagementView(viewModel: AdminUserViewModel) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val history by viewModel.selectedUserHistory.collectAsState()
+    val userNotifications by viewModel.selectedUserNotifications.collectAsState()
     
     var selectedUser by remember { mutableStateOf<UserProfile?>(null) }
+    var showNotificationDialog by remember { mutableStateOf(false) }
+
+    if (showNotificationDialog && selectedUser != null) {
+        SendNotificationDialog(
+            userName = selectedUser!!.name,
+            onDismiss = { showNotificationDialog = false },
+            onSend = { title, message ->
+                viewModel.sendNotification(selectedUser!!.id!!, title, message)
+                showNotificationDialog = false
+            }
+        )
+    }
 
     Row(modifier = Modifier.fillMaxSize(), horizontalArrangement = Arrangement.spacedBy(24.dp)) {
         Column(modifier = Modifier.weight(1f)) {
@@ -410,7 +440,12 @@ fun UserManagementView(viewModel: AdminUserViewModel) {
 
         Column(modifier = Modifier.weight(1.2f)) {
             if (selectedUser != null) {
-                UserDetailPane(user = selectedUser!!, history = history)
+                UserDetailPane(
+                    user = selectedUser!!, 
+                    history = history,
+                    notifications = userNotifications,
+                    onSendMessageClick = { showNotificationDialog = true }
+                )
             } else {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text("회원을 선택하면 상세 정보와 예약 이력을 볼 수 있습니다.", color = MaterialTheme.colorScheme.outline)
@@ -418,6 +453,54 @@ fun UserManagementView(viewModel: AdminUserViewModel) {
             }
         }
     }
+}
+
+@Composable
+fun SendNotificationDialog(
+    userName: String,
+    onDismiss: () -> Unit,
+    onSend: (String, String) -> Unit
+) {
+    var title by remember { mutableStateOf("알림") }
+    var message by remember { mutableStateOf("") }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("$userName 님에게 알림 전송", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    label = { Text("제목") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                )
+                OutlinedTextField(
+                    value = message,
+                    onValueChange = { message = it },
+                    label = { Text("메시지 내용") },
+                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = { onSend(title, message) },
+                enabled = message.isNotBlank(),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("전송하기")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("취소")
+            }
+        },
+        shape = RoundedCornerShape(24.dp)
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -519,14 +602,115 @@ fun ScheduleManagementView(viewModel: AdminScheduleViewModel) {
 }
 
 @Composable
-fun UserDetailPane(user: UserProfile, history: List<Reservation>) {
+fun MessageManagementView(viewModel: AdminMessageViewModel) {
+    val notifications by viewModel.allNotifications.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    
+    var showBroadcastDialog by remember { mutableStateOf(false) }
+
+    if (showBroadcastDialog) {
+        SendNotificationDialog(
+            userName = "전체 회원",
+            onDismiss = { showBroadcastDialog = false },
+            onSend = { title, message ->
+                viewModel.sendBroadcast(title, message)
+                showBroadcastDialog = false
+            }
+        )
+    }
+
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("메시지 센터", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+            Button(
+                onClick = { showBroadcastDialog = true },
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.Campaign, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("전체 공지 발송")
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text("최근 발송 이력", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.height(16.dp))
+
+        if (isLoading) LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            items(notifications) { notification ->
+                OutlinedCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            modifier = Modifier.size(40.dp),
+                            shape = CircleShape,
+                            color = MaterialTheme.colorScheme.secondaryContainer
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(Icons.Default.History, contentDescription = null, modifier = Modifier.size(20.dp))
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(16.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(notification.title, fontWeight = FontWeight.Bold)
+                            Text(notification.message, style = MaterialTheme.typography.bodyMedium)
+                            val date = try {
+                                OffsetDateTime.parse(notification.createdAt).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                            } catch (e: Exception) { notification.createdAt ?: "" }
+                            Text(date, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                        }
+                        IconButton(onClick = { viewModel.deleteNotification(notification.id!!) }) {
+                            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun UserDetailPane(
+    user: UserProfile, 
+    history: List<Reservation>, 
+    notifications: List<Notification>,
+    onSendMessageClick: () -> Unit
+) {
     ElevatedCard(
         modifier = Modifier.fillMaxSize(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.elevatedCardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(24.dp)) {
-            Text("회원 상세 정보", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        Column(modifier = Modifier.padding(24.dp).verticalScroll(rememberScrollState())) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("회원 상세 정보", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                Button(
+                    onClick = onSendMessageClick,
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp)
+                ) {
+                    Icon(Icons.Default.Send, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("알림 보내기")
+                }
+            }
+
             Spacer(modifier = Modifier.height(20.dp))
             
             DetailRow(label = "이름", value = user.name)
@@ -536,27 +720,43 @@ fun UserDetailPane(user: UserProfile, history: List<Reservation>) {
             
             Spacer(modifier = Modifier.height(32.dp))
             
+            Text("최근 발송 메시지 (${notifications.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            notifications.take(3).forEach { note ->
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.1f)
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Text(note.title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                        Text(note.message, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(32.dp))
+            
             Text("예약 이력 (${history.size})", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.height(12.dp))
             
-            LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                items(history) { res ->
-                    val date = try {
-                        OffsetDateTime.parse(res.reservedAt).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-                    } catch (e: Exception) { res.reservedAt }
-                    
-                    Surface(
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(12.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-                    ) {
-                        Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(res.eegType.displayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
-                                Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
-                            }
-                            StatusBadge(res.status)
+            history.forEach { res ->
+                val date = try {
+                    OffsetDateTime.parse(res.reservedAt).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+                } catch (e: Exception) { res.reservedAt }
+                
+                Surface(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+                ) {
+                    Row(modifier = Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(res.eegType.displayName, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodyMedium)
+                            Text(date, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)
                         }
+                        StatusBadge(res.status)
                     }
                 }
             }

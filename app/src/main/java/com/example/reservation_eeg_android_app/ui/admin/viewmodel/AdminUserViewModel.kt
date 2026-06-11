@@ -27,6 +27,9 @@ class AdminUserViewModel : ViewModel() {
     private val _selectedUserHistory = MutableStateFlow<List<Reservation>>(emptyList())
     val selectedUserHistory: StateFlow<List<Reservation>> = _selectedUserHistory.asStateFlow()
 
+    private val _selectedUserNotifications = MutableStateFlow<List<com.example.reservation_eeg_android_app.model.Notification>>(emptyList())
+    val selectedUserNotifications: StateFlow<List<com.example.reservation_eeg_android_app.model.Notification>> = _selectedUserNotifications.asStateFlow()
+
     val filteredUsers: StateFlow<List<UserProfile>> = combine(
         _users,
         _searchQuery
@@ -66,6 +69,7 @@ class AdminUserViewModel : ViewModel() {
     fun fetchUserHistory(userId: String) {
         viewModelScope.launch {
             try {
+                // 1. Fetch Reservations
                 val history = supabaseClient.postgrest["bookings"]
                     .select {
                         filter { eq("user_id", userId) }
@@ -73,6 +77,30 @@ class AdminUserViewModel : ViewModel() {
                     }
                     .decodeList<Reservation>()
                 _selectedUserHistory.value = history
+
+                // 2. Fetch Notifications sent to this user
+                val notifications = supabaseClient.postgrest["notifications"]
+                    .select {
+                        filter { eq("user_id", userId) }
+                        order("created_at", order = Order.DESCENDING)
+                    }
+                    .decodeList<com.example.reservation_eeg_android_app.model.Notification>()
+                _selectedUserNotifications.value = notifications
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun sendNotification(userId: String, title: String, message: String) {
+        viewModelScope.launch {
+            try {
+                val notification = com.example.reservation_eeg_android_app.model.Notification(
+                    userId = userId,
+                    title = title,
+                    message = message
+                )
+                supabaseClient.postgrest["notifications"].insert(notification)
             } catch (e: Exception) {
                 e.printStackTrace()
             }
