@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>다우데이타 키움페이 결제창</title>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;900&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Noto Sans KR', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background-color: #f3f4f6;
+            color: #1f2937;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+        header {
+            background-color: #004F9E;
+            color: white;
+            padding: 16px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        header h1 {
+            font-size: 18px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        header .logo-main {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+        }
+        header .logo-sub {
+            font-size: 11px;
+            background-color: rgba(255, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-weight: 400;
+        }
+        .cancel-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+        }
+        main {
+            flex: 1;
+            padding: 20px;
+            max-width: 480px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .summary-card {
+            background: white;
+            border-radius: 16px;
+            padding: 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.05);
+            margin-bottom: 20px;
+            border: 1px solid rgba(0, 79, 158, 0.08);
+        }
+        .summary-header {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 8px;
+            font-weight: 500;
+        }
+        .merchant-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #111827;
+            margin-bottom: 12px;
+        }
+        .divider {
+            height: 1px;
+            background-color: #f3f4f6;
+            margin: 12px 0;
+        }
+        .detail-row {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        .detail-label {
+            color: #6b7280;
+        }
+        .detail-value {
+            font-weight: 500;
+            color: #374151;
+        }
+        .amount-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 2px dashed #e5e7eb;
+        }
+        .amount-label {
+            font-size: 15px;
+            font-weight: 700;
+            color: #111827;
+        }
+        .amount-value {
+            font-size: 22px;
+            font-weight: 900;
+            color: #004F9E;
+            font-family: 'Outfit', sans-serif;
+        }
+        .section-title {
+            font-size: 15px;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: #374151;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .section-title::before {
+            content: '';
+            display: inline-block;
+            width: 4px;
+            height: 14px;
+            background-color: #004F9E;
+            border-radius: 2px;
+        }
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1f);
+            gap: 10px;
+            margin-bottom: 24px;
+        }
+        .card-option {
+            background: white;
+            border: 2px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 14px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-weight: 600;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+        }
+        .card-option:active, .card-option.selected {
+            border-color: #004F9E;
+            background-color: rgba(0, 79, 158, 0.03);
+            color: #004F9E;
+            transform: scale(0.98);
+        }
+        .card-logo {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        /* Card-specific Colors for Simulation */
+        .card-sh { background-color: #0046ff; } /* Shinhan */
+        .card-kb { background-color: #ffbc00; } /* Kookmin */
+        .card-ss { background-color: #0d42ff; } /* Samsung */
+        .card-hd { background-color: #111111; } /* Hyundai */
+        .card-lt { background-color: #ed1c24; } /* Lotte */
+        .card-hn { background-color: #008485; } /* Hana */
+        .card-bc { background-color: #f11919; } /* BC */
+        .card-nh { background-color: #00a0e9; } /* NH */
+
+        /* Dialogs and overlay styles */
+        .overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(4px);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            padding: 20px;
+        }
+        .payment-modal {
+            background: white;
+            border-radius: 20px;
+            width: 100%;
+            max-width: 380px;
+            padding: 24px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            display: none;
+        }
+        @keyframes slideUp {
+            from { transform: translateY(50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        .modal-title {
+            font-size: 18px;
+            font-weight: 700;
+            margin-bottom: 16px;
+            text-align: center;
+            color: #111827;
+        }
+        .method-tabs {
+            display: flex;
+            background-color: #f3f4f6;
+            padding: 4px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            background: none;
+            font-size: 13px;
+            font-weight: 600;
+            color: #6b7280;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .tab-btn.active {
+            background-color: white;
+            color: #111827;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .form-group {
+            margin-bottom: 14px;
+        }
+        .form-group label {
+            display: block;
+            font-size: 12px;
+            font-weight: 600;
+            color: #4b5563;
+            margin-bottom: 6px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus {
+            border-color: #004F9E;
+        }
+        .card-number-container {
+            display: flex;
+            gap: 6px;
+        }
+        .card-number-container input {
+            width: 25%;
+            text-align: center;
+        }
+        .action-button {
+            width: 100%;
+            background-color: #004F9E;
+            color: white;
+            padding: 14px;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            margin-top: 10px;
+        }
+        .action-button:active {
+            background-color: #00376e;
+        }
+        
+        /* App card layout */
+        .appcard-flow {
+            text-align: center;
+            padding: 16px 0;
+            display: none;
+        }
+        .appcard-qr {
+            width: 130px;
+            height: 130px;
+            margin: 0 auto 16px;
+            border: 1px solid #e5e7eb;
+            border-radius: 12px;
+            padding: 10px;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .appcard-qr svg {
+            width: 100%;
+            height: 100%;
+        }
+        .appcard-desc {
+            font-size: 13px;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 20px;
+        }
+
+        /* Loading Overlay */
+        .loader-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .spinner {
+            width: 48px;
+            height: 48px;
+            border: 4px solid rgba(0, 79, 158, 0.1);
+            border-top-color: #004F9E;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .loader-text {
+            font-size: 16px;
+            font-weight: 600;
+            color: #111827;
+            margin-bottom: 6px;
+        }
+        .loader-subtext {
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        /* Success screen inside modal */
+        .success-container {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            padding: 10px 0;
+        }
+        .success-icon {
+            width: 60px;
+            height: 60px;
+            background-color: #ecfdf5;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 16px;
+            border: 2px solid #10b981;
+        }
+        .success-icon svg {
+            width: 32px;
+            height: 32px;
+            color: #10b981;
+        }
+        .success-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: #065f46;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>
+            <span class="logo-main">KiwoomPay</span>
+            <span class="logo-sub">신용카드결제</span>
+        </h1>
+        <button class="cancel-btn" onclick="cancelPayment()">취소</button>
+    </header>
+
+    <main>
+        <div class="summary-card">
+            <div class="summary-header">EEG 예약 결제정보</div>
+            <div class="merchant-name" id="display-merchant">한유속 EEG 클리닉</div>
+            
+            <div class="detail-row">
+                <span class="detail-label">가맹점명</span>
+                <span class="detail-value">한유속 EEG 클리닉</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">상품명</span>
+                <span class="detail-value" id="display-item">성인 일반 EEG 검사</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">구매자명</span>
+                <span class="detail-value" id="display-name">홍길동</span>
+            </div>
+            
+            <div class="amount-row">
+                <span class="amount-label">결제금액</span>
+                <span class="amount-value" id="display-amount">50,000원</span>
+            </div>
+        </div>
+
+        <div class="section-title">신용카드사 선택</div>
+        
+        <div class="card-grid">
+            <div class="card-option" onclick="selectCard('신한카드', 'card-sh')">
+                <span class="card-logo card-sh"></span> 신한카드
+            </div>
+            <div class="card-option" onclick="selectCard('KB국민카드', 'card-kb')">
+                <span class="card-logo card-kb"></span> KB국민카드
+            </div>
+            <div class="card-option" onclick="selectCard('삼성카드', 'card-ss')">
+                <span class="card-logo card-ss"></span> 삼성카드
+            </div>
+            <div class="card-option" onclick="selectCard('현대카드', 'card-hd')">
+                <span class="card-logo card-hd"></span> 현대카드
+            </div>
+            <div class="card-option" onclick="selectCard('롯데카드', 'card-lt')">
+                <span class="card-logo card-lt"></span> 롯데카드
+            </div>
+            <div class="card-option" onclick="selectCard('하나카드', 'card-hn')">
+                <span class="card-logo card-hn"></span> 하나카드
+            </div>
+            <div class="card-option" onclick="selectCard('BC카드', 'card-bc')">
+                <span class="card-logo card-bc"></span> BC카드
+            </div>
+            <div class="card-option" onclick="selectCard('NH농협카드', 'card-nh')">
+                <span class="card-logo card-nh"></span> NH농협카드
+            </div>
+        </div>
+    </main>
+
+    <!-- Overlay container for modal dialogues -->
+    <div class="overlay" id="overlay">
+        <!-- Interactive Billing Modal -->
+        <div class="payment-modal" id="payment-modal">
+            <div class="modal-title" id="modal-card-title">신한카드 결제</div>
+            
+            <div class="method-tabs">
+                <button class="tab-btn active" id="tab-app" onclick="switchMethod('app')">앱카드 결제</button>
+                <button class="tab-btn" id="tab-key" onclick="switchMethod('key')">일반 카드결제</button>
+            </div>
+
+            <!-- App Card Flow -->
+            <div class="appcard-flow" id="appcard-flow" style="display: block;">
+                <div class="appcard-qr">
+                    <!-- Standard QR Code SVG mockup -->
+                    <svg viewBox="0 0 100 100">
+                        <path d="M5,5 h30 v30 h-30 z M15,15 h10 v10 h-10 z M65,5 h30 v30 h-30 z M75,15 h10 v10 h-10 z M5,65 h30 v30 h-30 z M15,75 h10 v10 h-10 z M50,5 h10 v10 h-10 z M50,25 h10 v10 h-10 z M5,45 h10 v10 h-10 z M25,45 h10 v10 h-10 z M45,45 h10 v10 h-10 z M65,45 h10 v20 h-10 z M85,45 h10 v10 h-10 z M45,65 h10 v10 h-10 z M55,75 h20 v10 h-20 z M85,75 h10 v20 h-10 z" fill="#1f2937"/>
+                    </svg>
+                </div>
+                <div class="appcard-desc">
+                    스마트폰에 설치된 <strong id="desc-card-name">신한카드</strong> 앱카드 어플리케이션을 실행하여 QR코드를 스캔하거나 결제 비밀번호를 입력해주세요.
+                </div>
+                <button class="action-button" onclick="submitAppCardPayment()">앱카드 결제 완료</button>
+            </div>
+
+            <!-- Key-in Card Flow -->
+            <div class="keyin-flow" id="keyin-flow" style="display: none;">
+                <div class="form-group">
+                    <label>카드번호</label>
+                    <div class="card-number-container">
+                        <input type="tel" maxlength="4" class="form-input" placeholder="••••" id="c1">
+                        <input type="tel" maxlength="4" class="form-input" placeholder="••••" id="c2">
+                        <input type="password" maxlength="4" class="form-input" placeholder="••••" id="c3">
+                        <input type="password" maxlength="4" class="form-input" placeholder="••••" id="c4">
+                    </div>
+                </div>
+                <div class="form-group" style="display: flex; gap: 10px;">
+                    <div style="flex: 1;">
+                        <label>유효기간 (MM/YY)</label>
+                        <input type="tel" maxlength="5" class="form-input" placeholder="MM/YY" id="cexp">
+                    </div>
+                    <div style="flex: 1;">
+                        <label>CVC (카드뒷면 3자리)</label>
+                        <input type="password" maxlength="3" class="form-input" placeholder="•••" id="ccvc">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>비밀번호 앞 2자리</label>
+                    <input type="password" maxlength="2" style="width: 80px;" class="form-input" placeholder="••" id="cpw">
+                </div>
+                <button class="action-button" onclick="submitKeyInPayment()">결제요청</button>
+            </div>
+        </div>
+
+        <!-- Loader -->
+        <div class="loader-container" id="loader-container">
+            <div class="spinner"></div>
+            <div class="loader-text" id="loader-text">결제 승인 처리 중...</div>
+            <div class="loader-subtext">잠시만 기다려 주십시오.</div>
+        </div>
+
+        <!-- Success Container -->
+        <div class="success-container" id="success-container">
+            <div class="success-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                    <polyline points="20 6 9 17 4 12"></polyline>
+                </svg>
+            </div>
+            <div class="success-title">결제 완료</div>
+            <div class="loader-subtext" style="margin-bottom: 20px;">결제 정보가 정상적으로 전송되었습니다.</div>
+        </div>
+    </div>
+
+    <script>
+        // Extract query parameters
+        const params = new URLSearchParams(window.location.search);
+        const amount = params.get('amount') || '50,000';
+        const item = params.get('item') || '성인 일반 EEG 검사';
+        const name = params.get('name') || '홍길동';
+
+        // Format amount
+        let formattedAmount = amount;
+        if (!isNaN(amount) && amount !== '') {
+            formattedAmount = Number(amount).toLocaleString('ko-KR') + '원';
+        }
+
+        document.getElementById('display-amount').innerText = formattedAmount;
+        document.getElementById('display-item').innerText = item;
+        document.getElementById('display-name').innerText = name;
+
+        let selectedCardName = '';
+
+        // Switch to AppCard / Key-In form
+        function switchMethod(method) {
+            const tabApp = document.getElementById('tab-app');
+            const tabKey = document.getElementById('tab-key');
+            const appFlow = document.getElementById('appcard-flow');
+            const keyFlow = document.getElementById('keyin-flow');
+
+            if (method === 'app') {
+                tabApp.classList.add('active');
+                tabKey.classList.remove('active');
+                appFlow.style.display = 'block';
+                keyFlow.style.display = 'none';
+            } else {
+                tabApp.classList.remove('active');
+                tabKey.classList.add('active');
+                appFlow.style.display = 'none';
+                keyFlow.style.display = 'block';
+            }
+        }
+
+        // Open Card Modal
+        function selectCard(cardName, logoClass) {
+            selectedCardName = cardName;
+            document.getElementById('modal-card-title').innerText = cardName + ' 결제';
+            document.getElementById('desc-card-name').innerText = cardName;
+            
+            document.getElementById('overlay').style.display = 'flex';
+            document.getElementById('payment-modal').style.display = 'block';
+            switchMethod('app');
+        }
+
+        // Handle Payment flow simulation
+        function startLoading(text) {
+            document.getElementById('payment-modal').style.display = 'none';
+            document.getElementById('loader-container').style.display = 'flex';
+            document.getElementById('loader-text').innerText = text;
+        }
+
+        function submitAppCardPayment() {
+            startLoading('앱카드 인증 요청 중...');
+            setTimeout(() => {
+                document.getElementById('loader-text').innerText = '결제 승인 처리 중...';
+                setTimeout(() => {
+                    completePayment();
+                }, 1500);
+            }, 1200);
+        }
+
+        function submitKeyInPayment() {
+            // Basic input check
+            const c1 = document.getElementById('c1').value;
+            const cexp = document.getElementById('cexp').value;
+            const ccvc = document.getElementById('ccvc').value;
+            const cpw = document.getElementById('cpw').value;
+
+            if (!c1 || !cexp || !ccvc || !cpw) {
+                alert('카드 정보를 모두 정확히 입력해주세요.');
+                return;
+            }
+
+            startLoading('카드 정보 확인 중...');
+            setTimeout(() => {
+                document.getElementById('loader-text').innerText = '결제 승인 처리 중...';
+                setTimeout(() => {
+                    completePayment();
+                }, 1500);
+            }, 1000);
+        }
+
+        function completePayment() {
+            document.getElementById('loader-container').style.display = 'none';
+            document.getElementById('success-container').style.display = 'flex';
+            
+            const transactionId = 'KP-' + Math.floor(Math.random() * 9000000000 + 1000000000);
+
+            setTimeout(() => {
+                // Trigger Android Callback
+                if (window.AndroidInterface && typeof window.AndroidInterface.onPaymentSuccess === 'function') {
+                    window.AndroidInterface.onPaymentSuccess(selectedCardName, transactionId);
+                } else {
+                    console.log('AndroidInterface success callback. TxnId: ' + transactionId);
+                    alert('결제가 정상 완료되었습니다. (테스트 환경)\n승인번호: ' + transactionId);
+                }
+            }, 1000);
+        }
+
+        function cancelPayment() {
+            if (confirm('결제를 취소하시겠습니까?')) {
+                if (window.AndroidInterface && typeof window.AndroidInterface.onPaymentCancel === 'function') {
+                    window.AndroidInterface.onPaymentCancel();
+                } else {
+                    console.log('AndroidInterface cancel callback.');
+                    document.getElementById('overlay').style.display = 'none';
+                    alert('결제가 취소되었습니다.');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
