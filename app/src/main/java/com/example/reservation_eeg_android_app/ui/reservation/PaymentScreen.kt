@@ -1,8 +1,13 @@
 package com.example.reservation_eeg_android_app.ui.reservation
 
+import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
+import android.webkit.CookieManager
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.compose.foundation.BorderStroke
@@ -331,9 +336,15 @@ fun PaymentScreen(
                     factory = { ctx ->
                         WebView(ctx).apply {
                             settings.javaScriptEnabled = true
+                            settings.javaScriptCanOpenWindowsAutomatically = true
                             settings.domStorageEnabled = true
                             settings.allowFileAccess = true
                             settings.allowContentAccess = true
+                            settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
+                            
+                            val cookieManager = CookieManager.getInstance()
+                            cookieManager.setAcceptCookie(true)
+                            cookieManager.setAcceptThirdPartyCookies(this, true)
                             
                             addJavascriptInterface(
                                 PaymentJavaScriptInterface(
@@ -356,29 +367,16 @@ fun PaymentScreen(
                             )
 
                             webViewClient = object : WebViewClient() {
+                                // API 21+
                                 override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
                                     val url = request?.url?.toString() ?: return false
-                                    // Handle mobile app card scheme redirects (e.g. intent://)
-                                    if (!url.startsWith("http://") && !url.startsWith("https://") && !url.startsWith("file://")) {
-                                        try {
-                                            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
-                                            if (intent.resolveActivity(ctx.packageManager) != null) {
-                                                ctx.startActivity(intent)
-                                                return true
-                                            } else {
-                                                val packageName = intent.`package`
-                                                if (packageName != null) {
-                                                    val marketIntent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$packageName"))
-                                                    ctx.startActivity(marketIntent)
-                                                    return true
-                                                }
-                                            }
-                                        } catch (e: Exception) {
-                                            e.printStackTrace()
-                                        }
-                                        return true
-                                    }
-                                    return false
+                                    return handleUri(view, url, ctx)
+                                }
+
+                                // Legacy / Web Compatibility
+                                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                                    if (url == null) return false
+                                    return handleUri(view, url, ctx)
                                 }
                             }
 
@@ -424,5 +422,61 @@ class PaymentJavaScriptInterface(
     @android.webkit.JavascriptInterface
     fun onPaymentCancel() {
         onPaymentCancel()
+    }
+}
+
+private fun handleUri(view: WebView?, url: String, context: Context): Boolean {
+    if (url.startsWith("http://") || url.startsWith("https://")) {
+        return false
+    }
+
+    if (url.startsWith("intent://")) {
+        try {
+            val intent = Intent.parseUri(url, Intent.URI_INTENT_SCHEME)
+            val packageName = intent.`package`
+
+            // 1) 앱이 설치되어 있으면 실행
+            if (packageName != null && isAppInstalled(context, packageName)) {
+                context.startActivity(intent)
+                return true
+            }
+
+            // 2) fallback URL 우선
+            val fallback = intent.getStringExtra("browser_fallback_url")
+            if (fallback != null && (fallback.startsWith("http://") || fallback.startsWith("https://"))) {
+                view?.loadUrl(fallback)
+                return true
+            }
+
+            // 3) 해당 패키지가 없을 경우 Play Store로 이동
+            if (packageName != null) {
+                val uri = Uri.parse("market://details?id=$packageName")
+                context.startActivity(Intent(Intent.ACTION_VIEW, uri))
+                return true
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            return false
+        }
+        return false
+    }
+
+    // 그 외 custom scheme 카드사 앱 실행 처리
+    try {
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+        context.startActivity(intent)
+        return true
+    } catch (e: Exception) {
+        Log.e("WV", "unhandled scheme: $url", e)
+        return false
+    }
+}
+
+private fun isAppInstalled(context: Context, packageName: String): Boolean {
+    return try {
+        context.packageManager.getPackageInfo(packageName, 0)
+        true
+    } catch (e: PackageManager.NameNotFoundException) {
+        false
     }
 }
