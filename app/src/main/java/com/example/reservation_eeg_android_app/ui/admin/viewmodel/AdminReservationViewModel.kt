@@ -99,7 +99,12 @@ class AdminReservationViewModel : ViewModel() {
         }
     }
 
-    fun updateReservationStatus(reservationId: Int, newStatus: ReservationStatus) {
+    fun updateReservationStatus(
+        reservationId: Int, 
+        newStatus: ReservationStatus,
+        customTitle: String? = null,
+        customMessage: String? = null
+    ) {
         viewModelScope.launch {
             try {
                 val reservation = _reservations.value.find { it.id == reservationId }
@@ -111,16 +116,21 @@ class AdminReservationViewModel : ViewModel() {
                 }
 
                 reservation?.userId?.let { uid ->
-                    val statusText = when(newStatus) {
-                        ReservationStatus.CONFIRMED -> "확정되었습니다"
-                        ReservationStatus.COMPLETED -> "진료가 완료되었습니다"
-                        ReservationStatus.CANCELLED -> "취소되었습니다"
-                        else -> "상태가 변경되었습니다"
+                    val finalTitle = customTitle ?: "예약 상태 변경"
+                    val finalMessage = customMessage ?: run {
+                        val statusText = when(newStatus) {
+                            ReservationStatus.CONFIRMED -> "확정되었습니다"
+                            ReservationStatus.COMPLETED -> "진료가 완료되었습니다"
+                            ReservationStatus.CANCELLED -> "취소되었습니다"
+                            else -> "상태가 변경되었습니다"
+                        }
+                        "환자 ${reservation.patientName}님의 예약이 $statusText."
                     }
+                    
                     val notification = com.example.reservation_eeg_android_app.model.Notification(
                         userId = uid,
-                        title = "예약 상태 변경",
-                        message = "환자 ${reservation.patientName}님의 예약이 $statusText.",
+                        title = finalTitle,
+                        message = finalMessage,
                         relatedId = reservationId
                     )
                     supabaseClient.postgrest["notifications"].insert(notification)

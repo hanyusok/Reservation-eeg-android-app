@@ -1,6 +1,7 @@
 package com.example.reservation_eeg_android_app.ui.admin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -262,6 +263,19 @@ fun MasterReservationList(viewModel: AdminReservationViewModel) {
     val searchQuery by viewModel.searchQuery.collectAsState()
 
     var showDatePicker by remember { mutableStateOf(false) }
+    var selectedReservationForStatus by remember { mutableStateOf<Pair<Reservation, ReservationStatus>?>(null) }
+
+    if (selectedReservationForStatus != null) {
+        val (res, nextStatus) = selectedReservationForStatus!!
+        SendNotificationDialog(
+            userName = res.patientName,
+            onDismiss = { selectedReservationForStatus = null },
+            onSend = { title, message ->
+                viewModel.updateReservationStatus(res.id!!, nextStatus, title, message)
+                selectedReservationForStatus = null
+            }
+        )
+    }
 
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
@@ -348,7 +362,11 @@ fun MasterReservationList(viewModel: AdminReservationViewModel) {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 items(filteredReservations) { reservation ->
                     AdminReservationItem(reservation) { newStatus ->
-                        viewModel.updateReservationStatus(reservation.id!!, newStatus)
+                        if (newStatus == ReservationStatus.CONFIRMED) {
+                            selectedReservationForStatus = reservation to newStatus
+                        } else {
+                            viewModel.updateReservationStatus(reservation.id!!, newStatus)
+                        }
                     }
                 }
             }
@@ -464,11 +482,34 @@ fun SendNotificationDialog(
     var title by remember { mutableStateOf("알림") }
     var message by remember { mutableStateOf("") }
 
+    val templates = listOf(
+        "일반 EEG" to "안녕하세요, $userName 님. Routine EEG 검사 안내입니다. 검사 당일 머리를 깨끗이 감고 오시되, 헤어 젤이나 스프레이는 사용하지 마시기 바랍니다. 검사 10분 전까지 내원해 주세요.",
+        "수면 EEG" to "안녕하세요, $userName 님. 수면 박탈 EEG 안내입니다. 정확한 검사를 위해 전날 밤 수면 시간을 4시간 이내로 제한해 주시기 바랍니다. 검사 당일 졸음이 올 수 있으니 보호자 동반을 권장합니다.",
+        "비디오 모니터링" to "안녕하세요, $userName 님. 비디오 EEG 모니터링 안내입니다. 장시간 검사가 진행되므로 편안한 복장으로 오시기 바랍니다. 현재 복용 중인 약 처방전을 지참해 주세요.",
+        "예약 확정" to "안녕하세요, $userName 님. 요청하신 예약이 확정되었습니다. 예약된 시간에 늦지 않게 방문해 주시기 바랍니다. 감사합니다."
+    )
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("$userName 님에게 알림 전송", fontWeight = FontWeight.Bold) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("템플릿 선택", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+                Row(
+                    modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    templates.forEach { (label, content) ->
+                        SuggestionChip(
+                            onClick = { 
+                                title = label
+                                message = content 
+                            },
+                            label = { Text(label) }
+                        )
+                    }
+                }
+
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
@@ -480,7 +521,7 @@ fun SendNotificationDialog(
                     value = message,
                     onValueChange = { message = it },
                     label = { Text("메시지 내용") },
-                    modifier = Modifier.fillMaxWidth().height(150.dp),
+                    modifier = Modifier.fillMaxWidth().height(180.dp),
                     shape = RoundedCornerShape(12.dp)
                 )
             }
