@@ -38,7 +38,8 @@ fun MyReservationsScreen(
     sessionStatus: SessionStatus,
     onEdit: (Reservation) -> Unit,
     onNewReservation: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onPayClick: (Int) -> Unit
 ) {
     val reservations by viewModel.userReservations.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
@@ -56,7 +57,8 @@ fun MyReservationsScreen(
         },
         onEdit = onEdit,
         onNewReservation = onNewReservation,
-        onNavigateToLogin = onNavigateToLogin
+        onNavigateToLogin = onNavigateToLogin,
+        onPayClick = onPayClick
     )
 }
 
@@ -71,7 +73,8 @@ fun MyReservationsContent(
     onDelete: (Int) -> Unit,
     onEdit: (Reservation) -> Unit,
     onNewReservation: () -> Unit,
-    onNavigateToLogin: () -> Unit
+    onNavigateToLogin: () -> Unit,
+    onPayClick: (Int) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
@@ -209,7 +212,8 @@ fun MyReservationsContent(
                         ReservationItem(
                             reservation = reservation,
                             onDelete = { reservationToDelete = reservation },
-                            onEdit = { onEdit(reservation) }
+                            onEdit = { onEdit(reservation) },
+                            onPayClick = onPayClick
                         )
                     }
                 }
@@ -228,7 +232,8 @@ fun MyReservationsContent(
 fun ReservationItem(
     reservation: Reservation,
     onDelete: () -> Unit,
-    onEdit: () -> Unit
+    onEdit: () -> Unit,
+    onPayClick: (Int) -> Unit
 ) {
     val displayTime = remember(reservation.reservedAt) {
         try {
@@ -308,7 +313,22 @@ fun ReservationItem(
                 }
 
                 // Action Buttons
-                Row {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (reservation.status == com.example.reservation_eeg_android_app.model.ReservationStatus.PENDING && reservation.id != null) {
+                        TextButton(
+                            onClick = { onPayClick(reservation.id) },
+                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.primary),
+                            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Payment,
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("결제하기", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+                        }
+                    }
                     IconButton(onClick = onEdit) {
                         Icon(
                             Icons.Default.Edit,
@@ -424,7 +444,8 @@ fun MyReservationsScreenPreview() {
             onDelete = {},
             onEdit = {},
             onNewReservation = {},
-            onNavigateToLogin = {}
+            onNavigateToLogin = {},
+            onPayClick = {}
         )
     }
 }

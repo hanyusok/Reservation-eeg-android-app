@@ -10,6 +10,7 @@ import com.example.reservation_eeg_android_app.ui.reservation.MyReservationsScre
 import com.example.reservation_eeg_android_app.ui.reservation.ReservationScreen
 import com.example.reservation_eeg_android_app.ui.reservation.SlotSelectionScreen
 import com.example.reservation_eeg_android_app.ui.reservation.SymptomScreen
+import com.example.reservation_eeg_android_app.ui.reservation.PaymentScreen
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.auth.ProfileScreen
 import com.example.reservation_eeg_android_app.ui.auth.FamilyMembersScreen
@@ -36,6 +37,9 @@ sealed class Screen(val route: String) {
     object Profile : Screen("profile")
     object FamilyMembers : Screen("family_members")
     object AdminDashboard : Screen("admin_dashboard")
+    object Payment : Screen("payment/{reservationId}") {
+        fun createRoute(reservationId: Int) = "payment/$reservationId"
+    }
     object DoctorDetail : Screen("doctor_detail/{doctorId}") {
         fun createRoute(doctorId: String) = "doctor_detail/$doctorId"
     }
@@ -104,12 +108,41 @@ fun NavGraph(
             )
         }
         composable(Screen.SlotSelection.route) {
+            val newReservationId by viewModel.newReservationId.collectAsState()
             SlotSelectionScreen(
                 viewModel = viewModel,
                 onBack = { navController.popBackStack() },
                 onComplete = { 
+                    val id = newReservationId
+                    if (id != null) {
+                        navController.navigate(Screen.Payment.createRoute(id)) {
+                            popUpTo(Screen.Reservation.route) { inclusive = true }
+                        }
+                        viewModel.clearNewReservationId()
+                    } else {
+                        navController.navigate(Screen.MyReservations.route) {
+                            popUpTo(Screen.Reservation.route) { inclusive = true }
+                        }
+                    }
+                }
+            )
+        }
+        composable(
+            route = Screen.Payment.route,
+            arguments = listOf(navArgument("reservationId") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val reservationId = backStackEntry.arguments?.getInt("reservationId") ?: 0
+            PaymentScreen(
+                reservationId = reservationId,
+                viewModel = viewModel,
+                onPaymentSuccess = {
                     navController.navigate(Screen.MyReservations.route) {
-                        popUpTo(Screen.Reservation.route) { inclusive = true }
+                        popUpTo(Screen.Clinic.route) { inclusive = false }
+                    }
+                },
+                onBack = {
+                    navController.navigate(Screen.MyReservations.route) {
+                        popUpTo(Screen.Clinic.route) { inclusive = false }
                     }
                 }
             )
@@ -127,7 +160,10 @@ fun NavGraph(
                     viewModel.clearEditing()
                     navController.navigate(Screen.Reservation.route)
                 },
-                onNavigateToLogin = { navController.navigate(Screen.Profile.route) }
+                onNavigateToLogin = { navController.navigate(Screen.Profile.route) },
+                onPayClick = { id ->
+                    navController.navigate(Screen.Payment.createRoute(id))
+                }
             )
         }
         composable(Screen.Notification.route) {

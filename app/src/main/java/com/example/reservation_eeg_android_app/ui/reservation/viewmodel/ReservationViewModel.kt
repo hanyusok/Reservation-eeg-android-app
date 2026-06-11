@@ -8,6 +8,7 @@ import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.Reservation
+import com.example.reservation_eeg_android_app.model.Payment
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -54,6 +55,9 @@ class ReservationViewModel : ViewModel() {
 
     private val _isReservationSuccess = MutableStateFlow(false)
     val isReservationSuccess: StateFlow<Boolean> = _isReservationSuccess.asStateFlow()
+
+    private val _newReservationId = MutableStateFlow<Int?>(null)
+    val newReservationId: StateFlow<Int?> = _newReservationId.asStateFlow()
 
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
@@ -258,6 +262,67 @@ class ReservationViewModel : ViewModel() {
         _symptoms.value = text
     }
 
+    fun clearNewReservationId() {
+        _newReservationId.value = null
+    }
+
+    suspend fun fetchReservationById(id: Int): Reservation? {
+        return try {
+            val results = supabaseClient.postgrest["bookings"].select {
+                filter {
+                    eq("id", id)
+                }
+            }.decodeList<Reservation>()
+            results.firstOrNull()
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
+    }
+
+    fun confirmPayment(
+        id: Int,
+        amount: Int,
+        cardIssuer: String,
+        transactionId: String,
+        callback: () -> Unit
+    ) {
+        val currentUserId = supabaseClient.auth.currentSessionOrNull()?.user?.id ?: return
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            try {
+                // 1. Update reservation status to CONFIRMED
+                supabaseClient.postgrest["bookings"].update({
+                    Reservation::status setTo com.example.reservation_eeg_android_app.model.ReservationStatus.CONFIRMED
+                }) {
+                    filter {
+                        eq("id", id)
+                    }
+                }
+
+                // 2. Insert payment record
+                val paymentRecord = Payment(
+                    reservationId = id,
+                    userId = currentUserId,
+                    amount = amount,
+                    paymentMethod = "신용카드",
+                    cardIssuer = cardIssuer,
+                    transactionId = transactionId
+                )
+                supabaseClient.postgrest["payments"].insert(paymentRecord)
+
+                fetchBookedSlots()
+                callback()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                _error.value = "결제 승인 처리 중 오류가 발생했습니다: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun completeReservation(slot: String) {
         val type = _selectedType.value ?: return
         val patient = _patientName.value
@@ -302,7 +367,11 @@ class ReservationViewModel : ViewModel() {
                         reservedAt = reservedAt
                     )
                     
-                    supabaseClient.postgrest["bookings"].insert(reservation)
+                    val response = supabaseClient.postgrest["bookings"].insert(reservation) {
+                        select()
+                    }
+                    val inserted = response.decodeSingle<Reservation>()
+                    _newReservationId.value = inserted.id
                     _isReservationSuccess.value = true
                     fetchBookedSlots() 
                 }
