@@ -7,7 +7,6 @@ import com.example.reservation_eeg_android_app.data.repository.UserRepository
 import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.CommunityPost
 import com.example.reservation_eeg_android_app.model.PostComment
-import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order

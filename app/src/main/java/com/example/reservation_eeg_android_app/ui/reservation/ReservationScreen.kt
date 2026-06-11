@@ -14,10 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.reservation_eeg_android_app.model.EegType
@@ -25,7 +23,6 @@ import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
 import io.github.jan.supabase.auth.status.SessionStatus
-import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

@@ -26,8 +26,8 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.model.ReservationStatus
 import com.example.reservation_eeg_android_app.model.UserProfile
-import com.example.reservation_eeg_android_app.model.BlockedSlot
 import com.example.reservation_eeg_android_app.model.Notification
+import com.example.reservation_eeg_android_app.ui.util.StatusBadge
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminReservationViewModel
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminUserViewModel
 import com.example.reservation_eeg_android_app.ui.admin.viewmodel.AdminScheduleViewModel
@@ -885,30 +885,4 @@ fun AdminReservationItem(reservation: Reservation, onStatusChange: (ReservationS
     }
 }
 
-@Composable
-fun StatusBadge(status: ReservationStatus) {
-    val color = when (status) {
-        ReservationStatus.PENDING -> Color(0xFFFFA000)
-        ReservationStatus.CONFIRMED -> Color(0xFF4CAF50)
-        ReservationStatus.COMPLETED -> MaterialTheme.colorScheme.primary
-        ReservationStatus.CANCELLED -> MaterialTheme.colorScheme.error
-    }
-    Surface(
-        color = color.copy(alpha = 0.1f),
-        shape = RoundedCornerShape(4.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, color.copy(alpha = 0.5f))
-    ) {
-        Text(
-            text = when(status) {
-                ReservationStatus.PENDING -> "대기중"
-                ReservationStatus.CONFIRMED -> "확정됨"
-                ReservationStatus.COMPLETED -> "진료완료"
-                ReservationStatus.CANCELLED -> "취소됨"
-            },
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = color,
-            fontWeight = FontWeight.Bold
-        )
-    }
-}
+

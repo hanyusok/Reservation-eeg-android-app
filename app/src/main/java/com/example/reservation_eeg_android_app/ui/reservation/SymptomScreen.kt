@@ -25,6 +25,9 @@ fun SymptomScreen(
     val symptoms by viewModel.symptoms.collectAsState()
     val patientName by viewModel.patientName.collectAsState()
     val userName by viewModel.userName.collectAsState()
+    val hasSeizure by viewModel.hasSeizure.collectAsState()
+    val hasMedications by viewModel.hasMedications.collectAsState()
+    val hasSleepDisorder by viewModel.hasSleepDisorder.collectAsState()
 
     val displayName = if (patientName == userName) "본인" else patientName
     
@@ -78,9 +81,21 @@ fun SymptomScreen(
                 modifier = Modifier.padding(bottom = 8.dp)
             )
             
-            ChecklistItem(label = "최근 1주일 내 경련 발생 여부")
-            ChecklistItem(label = "현재 복용 중인 약물 있음")
-            ChecklistItem(label = "수면 장애 여부")
+            ChecklistItem(
+                label = "최근 1주일 내 경련 발생 여부",
+                checked = hasSeizure,
+                onCheckedChange = { viewModel.updateHasSeizure(it) }
+            )
+            ChecklistItem(
+                label = "현재 복용 중인 약물 있음",
+                checked = hasMedications,
+                onCheckedChange = { viewModel.updateHasMedications(it) }
+            )
+            ChecklistItem(
+                label = "수면 장애 여부",
+                checked = hasSleepDisorder,
+                onCheckedChange = { viewModel.updateHasSleepDisorder(it) }
+            )
             
             Spacer(modifier = Modifier.height(24.dp))
             
@@ -124,15 +139,14 @@ fun SymptomScreen(
 }
 
 @Composable
-fun ChecklistItem(label: String) {
-    var checked by remember { mutableStateOf(false) }
+fun ChecklistItem(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
     ) {
-        Checkbox(checked = checked, onCheckedChange = { checked = it })
+        Checkbox(checked = checked, onCheckedChange = onCheckedChange)
         Text(text = label, modifier = Modifier.padding(start = 8.dp))
     }
 }

@@ -423,19 +423,7 @@ fun BusinessHourRow(day: String, hours: String, isClosed: Boolean = false) {
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-@Composable
-fun FlowRow(
-    modifier: Modifier = Modifier,
-    horizontalArrangement: Arrangement.Horizontal = Arrangement.Start,
-    content: @Composable FlowRowScope.() -> Unit
-) {
-    androidx.compose.foundation.layout.FlowRow(
-        modifier = modifier,
-        horizontalArrangement = horizontalArrangement,
-        content = content
-    )
-}
+
 
 @Preview(showBackground = true)
 @Composable

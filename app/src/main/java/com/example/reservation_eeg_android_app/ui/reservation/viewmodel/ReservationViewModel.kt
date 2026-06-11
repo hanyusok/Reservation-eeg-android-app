@@ -8,7 +8,6 @@ import com.example.reservation_eeg_android_app.data.supabaseClient
 import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.FamilyMember
 import com.example.reservation_eeg_android_app.model.Reservation
-import com.example.reservation_eeg_android_app.model.UserProfile
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.postgrest.postgrest
 import io.github.jan.supabase.postgrest.query.Order
@@ -37,6 +36,15 @@ class ReservationViewModel : ViewModel() {
 
     private val _symptoms = MutableStateFlow("")
     val symptoms: StateFlow<String> = _symptoms.asStateFlow()
+
+    private val _hasSeizure = MutableStateFlow(false)
+    val hasSeizure: StateFlow<Boolean> = _hasSeizure.asStateFlow()
+
+    private val _hasMedications = MutableStateFlow(false)
+    val hasMedications: StateFlow<Boolean> = _hasMedications.asStateFlow()
+
+    private val _hasSleepDisorder = MutableStateFlow(false)
+    val hasSleepDisorder: StateFlow<Boolean> = _hasSleepDisorder.asStateFlow()
 
     private val _bookedSlots = MutableStateFlow<List<Instant>>(emptyList())
     val bookedSlots: StateFlow<List<Instant>> = _bookedSlots.asStateFlow()
@@ -88,8 +96,20 @@ class ReservationViewModel : ViewModel() {
         editingReservationId = reservation.id
         _selectedType.value = reservation.eegType
         _patientName.value = reservation.patientName
-        _symptoms.value = reservation.symptoms
-        // Extract date from ISO string: "2026-06-10T..."
+        
+        val syms = reservation.symptoms
+        _hasSeizure.value = syms.contains("• 최근 1주일 내 경련: 있음")
+        _hasMedications.value = syms.contains("• 복용 중인 약물: 있음")
+        _hasSleepDisorder.value = syms.contains("• 수면 장애: 있음")
+        
+        _symptoms.value = if (syms.contains("[상세 증상]\n")) {
+            syms.substringAfter("[상세 증상]\n")
+        } else if (syms.contains("• 최근 1주일 내 경련:") || syms.contains("• 복용 중인 약물:") || syms.contains("• 수면 장애:")) {
+            ""
+        } else {
+            syms
+        }
+
         try {
             val datePart = reservation.reservedAt.split("T")[0]
             _selectedDate.value = LocalDate.parse(datePart)
@@ -104,7 +124,9 @@ class ReservationViewModel : ViewModel() {
         editingReservationId = null
         _selectedType.value = null
         _symptoms.value = ""
-        // but maybe we should reset it to the user's name.
+        _hasSeizure.value = false
+        _hasMedications.value = false
+        _hasSleepDisorder.value = false
         _patientName.value = UserRepository.userProfile.value?.name ?: ""
         _selectedDate.value = LocalDate.now(SupabaseConfig.KST_ZONE_ID)
         _originalReservedAt.value = null
@@ -189,6 +211,16 @@ class ReservationViewModel : ViewModel() {
         val patient = _patientName.value
         val symptomText = _symptoms.value
         val date = _selectedDate.value
+        
+        val finalSymptoms = buildString {
+            append("• 최근 1주일 내 경련: ${if (_hasSeizure.value) "있음" else "없음"}\n")
+            append("• 복용 중인 약물: ${if (_hasMedications.value) "있음" else "없음"}\n")
+            append("• 수면 장애: ${if (_hasSleepDisorder.value) "있음" else "없음"}\n")
+            if (symptomText.isNotBlank()) {
+                append("\n[상세 증상]\n$symptomText")
+            }
+        }
+        
         _isLoading.value = true
         try {
             val updatedReservedAt = "${date}T$newSlot:00${SupabaseConfig.KST_OFFSET}"
@@ -196,7 +228,7 @@ class ReservationViewModel : ViewModel() {
                 Reservation::reservedAt setTo updatedReservedAt
                 Reservation::eegType setTo type
                 Reservation::patientName setTo patient
-                Reservation::symptoms setTo symptomText
+                Reservation::symptoms setTo finalSymptoms
             }) {
                 filter {
                     eq("id", id)
@@ -233,6 +265,15 @@ class ReservationViewModel : ViewModel() {
         val date = _selectedDate.value
         val reservedAt = "${date}T$slot:00${SupabaseConfig.KST_OFFSET}"
         
+        val finalSymptoms = buildString {
+            append("• 최근 1주일 내 경련: ${if (_hasSeizure.value) "있음" else "없음"}\n")
+            append("• 복용 중인 약물: ${if (_hasMedications.value) "있음" else "없음"}\n")
+            append("• 수면 장애: ${if (_hasSleepDisorder.value) "있음" else "없음"}\n")
+            if (symptomText.isNotBlank()) {
+                append("\n[상세 증상]\n$symptomText")
+            }
+        }
+        
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
@@ -257,7 +298,7 @@ class ReservationViewModel : ViewModel() {
                         userId = currentUserId,
                         patientName = finalPatientName,
                         eegType = type,
-                        symptoms = symptomText,
+                        symptoms = finalSymptoms,
                         reservedAt = reservedAt
                     )
                     
@@ -279,4 +320,15 @@ class ReservationViewModel : ViewModel() {
         }
     }
 
+    fun updateHasSeizure(value: Boolean) {
+        _hasSeizure.value = value
+    }
+
+    fun updateHasMedications(value: Boolean) {
+        _hasMedications.value = value
+    }
+
+    fun updateHasSleepDisorder(value: Boolean) {
+        _hasSleepDisorder.value = value
+    }
 }

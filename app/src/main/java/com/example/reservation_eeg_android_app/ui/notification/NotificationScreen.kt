@@ -92,8 +92,19 @@ fun NotificationItem(
         notification.createdAt ?: ""
     }
 
+    val dismissState = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        }
+    )
+
     SwipeToDismissBox(
-        state = rememberSwipeToDismissBoxState(),
+        state = dismissState,
         backgroundContent = {
             Box(
                 Modifier.fillMaxSize().background(MaterialTheme.colorScheme.errorContainer).padding(horizontal = 20.dp),

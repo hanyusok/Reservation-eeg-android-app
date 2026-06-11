@@ -1,13 +1,8 @@
 package com.example.reservation_eeg_android_app.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -26,7 +21,6 @@ import com.example.reservation_eeg_android_app.model.mockDoctors
 import com.example.reservation_eeg_android_app.model.UserRole
 import com.example.reservation_eeg_android_app.ui.admin.AdminDashboardScreen
 import com.example.reservation_eeg_android_app.ui.notification.NotificationScreen
-import com.example.reservation_eeg_android_app.ui.util.PlaceholderScreen
 import androidx.navigation.NavType
 import androidx.navigation.navArgument
 import androidx.compose.runtime.LaunchedEffect

@@ -25,6 +25,7 @@ import com.example.reservation_eeg_android_app.model.EegType
 import com.example.reservation_eeg_android_app.model.Reservation
 import com.example.reservation_eeg_android_app.ui.reservation.viewmodel.ReservationViewModel
 import com.example.reservation_eeg_android_app.ui.theme.ReservationeegandroidappTheme
+import com.example.reservation_eeg_android_app.ui.util.StatusBadge
 import io.github.jan.supabase.auth.status.SessionStatus
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
@@ -271,12 +272,18 @@ fun ReservationItem(
                 Spacer(modifier = Modifier.width(16.dp))
 
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = reservation.eegType.displayName,
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = reservation.eegType.displayName,
+                            style = MaterialTheme.typography.titleLarge,
+                            fontWeight = FontWeight.ExtraBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        StatusBadge(status = reservation.status)
+                    }
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Surface(
                             color = MaterialTheme.colorScheme.secondaryContainer,
